@@ -1,0 +1,69 @@
+= Scan- und Validierungsmodell
+:page-layout: docs
+:toc: macro
+:toclevels: 2
+
+toc::[]
+
+== Organisationsscan
+
+Top-Level-Ordner werden nur dann als Organisationen erkannt, wenn sie eine
+gueltige `gretl-datenportal-job.yaml` enthalten.
+
+Technische Ordner werden ignoriert, solange sie nicht wie kaputte
+Organisationsordner aussehen. Ein Top-Level-Ordner ohne
+`gretl-datenportal-job.yaml`, der aber datensatzartige Unterordner enthaelt,
+wird als Warnung gemeldet.
+
+== Datensatzscan
+
+Innerhalb einer Organisation gelten Unterordner als Datensaetze, wenn sie genau
+eine Metadaten-Datei mit Endung `.xtf` oder `.xml` enthalten.
+
+Ordnernamen, die wie Datensatz-IDs aussehen, aber keine gueltige Metadaten-Datei
+enthalten, bleiben Validierungsfehler. Technische Unterordner werden ignoriert.
+
+== Shared Defaults und implizites `shared/Jenkinsfile`
+
+Beim Scan liest das Plugin:
+
+* `shared/gretl-datenportal-defaults.yaml`
+* `shared/gretl-datenportal-teams.yaml`
+* `shared/Jenkinsfile`
+
+Die Teams-Datei ist fuer die Autorisierung erforderlich. Sie muss mindestens
+ein Team mit mindestens einer nichtleeren Benutzer-ID enthalten, sobald das
+Themenrepo gescannt wird.
+
+Fehlt `shared/Jenkinsfile`, ist das nur dann ein Fehler, wenn mindestens eine
+Organisation keine spezifischere Jenkinsfile-Konfiguration aufloest.
+
+== Validierungsregeln
+
+Wichtige Regeln:
+
+* `permissions.read` muss mindestens ein Team enthalten.
+* `permissions.build` muss mindestens ein Team enthalten.
+* Jede referenzierte Team-ID muss in
+  `shared/gretl-datenportal-teams.yaml` definiert sein.
+* Leere oder ungueltige Organisationskonfigurationen werden nicht generiert.
+* Fehlende oder unlesbare YAML-Dateien fuehren zu Scan-Fehlern oder zum
+  Ueberspringen der betroffenen Organisation.
+* Organisationen ohne Datensatzordner erzeugen nur eine Info-Meldung.
+
+== Nicht mehr unterstuetzte Repository-Konfiguration
+
+Repository-gesteuerte GUI-Definitionen werden nicht mehr unterstuetzt.
+Abgelehnt werden insbesondere:
+
+* `gui`-Bloecke in `gretl-datenportal-job.yaml`
+* `gui`-Bloecke in `shared/gretl-datenportal-defaults.yaml`
+* `dataset-gui.yaml`
+
+== Weiterfuehrend
+
+* Die kanonische Struktur von Organisationen und Datensaetzen ist im Repo
+  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo]
+  dokumentiert.
+* Die lokale Integrationsumgebung fuer Seed-Laeufe liegt im Repo
+  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev].

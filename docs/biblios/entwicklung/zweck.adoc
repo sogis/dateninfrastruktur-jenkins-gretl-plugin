@@ -1,0 +1,60 @@
+= Zweck des Jenkins-Plugins
+:page-layout: docs
+:toc: macro
+:toclevels: 2
+
+toc::[]
+
+== Rolle im Gesamtsystem
+
+`jenkins-gretl-datenportal-plugin` ist die Implementierungsschicht zwischen dem
+fachlichen Themenrepo und Jenkins. Das Plugin entscheidet, welche Ordner als
+Organisationen und Datensaetze gelten, welche Jobs erzeugt werden und welche
+Parameter beim Start eines Jobs an Jenkins uebergeben werden.
+
+== Hauptaufgaben
+
+Das Plugin uebernimmt unter anderem:
+
+* Scan und Validierung des Themenrepos;
+* Zusammenfuehrung von Organisationswerten und Shared Defaults;
+* Rechtepruefung fuer Lesen und Bauen;
+* RootAction und Startformular unter `/gretl-datenportal`;
+* Seed-Builder und Generierung von `WorkflowJob`s;
+* Rendern des impliziten `shared/Jenkinsfile`.
+
+== Abgrenzung zu den anderen Repositories
+
+[cols="1,2,2",options="header"]
+|===
+| Repository | Rolle | Gehoert hierher?
+
+| `datenportal-jenkins-gretl-plugin`
+| Scanner, UI, Rechte, Seed-Builder, Job-Generierung, Rendering
+| Ja
+
+| `datenportal-themenrepo`
+| fachliche Struktur, Defaults, Gradle-Build-Vertrag
+| Nein
+
+| `datenportal-jenkins-dev`
+| lokaler Jenkins, Offline-Bundle, JCasC, Docker-Image
+| Nein
+|===
+
+== Warum die Trennung wichtig ist
+
+Das Plugin ist streng an den fachlichen Vertrag des Themenrepos gekoppelt, aber
+dieser Vertrag wird nicht hier definiert. Umgekehrt dokumentiert dieses Repo
+auch nicht die lokale Jenkins-Betriebsumgebung. Dadurch bleibt klar:
+
+* Was fachliche Eingabestruktur ist;
+* was Plugin-Logik ist;
+* was reine Laufzeit- und Integrationsumgebung ist.
+
+== Weiterfuehrend
+
+* Fachlicher Vertrag:
+  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo]
+* Lokale Betriebsumgebung:
+  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev]

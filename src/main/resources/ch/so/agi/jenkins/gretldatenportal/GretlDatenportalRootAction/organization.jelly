@@ -1,0 +1,27 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+    <l:layout title="${it.displayName}">
+        <l:main-panel>
+            <j:set var="organization" value="${it.selectedOrganization}" />
+            <j:choose>
+                <j:when test="${organization == null}">
+                    <h1>${it.displayName}</h1>
+                    <p>Organisation wurde nicht gefunden.</p>
+                </j:when>
+                <j:otherwise>
+                    <h1>${organization.jobDefinition.title}</h1>
+                    <p>${organization.jobDefinition.description}</p>
+                    <ul>
+                        <j:forEach var="dataset" items="${organization.datasets}">
+                            <li>
+                                <a href="${rootURL}/${it.urlName}/start?organization=${organization.id}&amp;dataset=${dataset.id}">
+                                    ${dataset.definition.title} (${dataset.id})
+                                </a>
+                            </li>
+                        </j:forEach>
+                    </ul>
+                </j:otherwise>
+            </j:choose>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>

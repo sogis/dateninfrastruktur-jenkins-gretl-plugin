@@ -1,0 +1,150 @@
+= Themenrepo-Checkout und Konfiguration
+:page-layout: docs
+:toc: macro
+:toclevels: 2
+
+toc::[]
+
+== Globale Plugin-Konfiguration
+
+Das Plugin konfiguriert global:
+
+* `displayName`
+* `urlName`
+* `topicRepositoryUrl`
+* `topicRepositoryMode` (`managed-git` oder `working-tree`)
+* `topicRepositoryBranch`
+* `topicRepositoryPath` als lokaler Arbeitsbaum beziehungsweise Legacy-Fallback
+* `seedJobAutoCreate` fuer die automatische Provisionierung des Seed-Jobs
+* `seedJobCron` (Default `H/15 * * * *`) fuer den Timer des Seed-Jobs
+* `seedJobBuildsToKeep` fuer die Log-Retention des Seed-Jobs
+
+Die Repository-Auflösung im Seed-Builder folgt dieser Reihenfolge:
+
+. Ein nichtleerer `topicRepositoryPath` im Builder hat Vorrang vor einer dort
+  ebenfalls gesetzten URL und erzwingt `working-tree`. Ein Branch wird dabei
+  nicht ausgecheckt; der gespeicherte Branch-Fallback lautet `main`.
+. Ohne Builder-Pfad erzwingt eine nichtleere Builder-URL `managed-git`.
+  Ein gesetzter Builder-Branch gilt nur in dieser Variante; andernfalls wird
+  der globale Branch verwendet.
+. Ohne Builder-Pfad und -URL gelten die globalen Werte. Ein allein gesetzter
+  Builder-Branch überschreibt den globalen Branch nicht.
+. Ein globaler Legacy-Pfad ohne URL wird als `working-tree` behandelt.
+  Ein leerer aufgelöster Branch fällt auf `main` zurück.
+
+Der Modus ist ein Ergebnis dieser Auflösung beziehungsweise der globalen
+Konfiguration; der Seed-Builder besitzt keinen separaten Modus-Override.
+ENV-Zuordnung, Defaults je Startvariante und JCasC-Auswahl beschreibt die
+link:https://codeberg.org/edigonzales/datenportal-jenkins-dev/src/branch/main/docs/biblios/entwicklung/referenz-konfiguration.adoc[zentrale Jenkins-Konfigurationsreferenz]. Insbesondere
+sind Dev/Produktion, Repository-Modus, S3-Freigabe und Git-Schreibfreigabe
+getrennte Werte. Die link:https://codeberg.org/edigonzales/datenportal-dev-stack/src/branch/main/docs/biblios/inbetriebnahme.adoc[Stack-Inbetriebnahme]
+verbindet Seeder, administrativen S3-Erstaufbau und Lieferformular. Ein
+Seeder-Lauf alleine publiziert keinen Gesamtstand.
+
+Im produktionsnahen `managed-git`-Modus zählt nur der committed Stand des
+konfigurierten Branches. Im lokalen `working-tree`-Modus werden beim Seed-Lauf
+auch uncommittete und untracked Dateien übernommen.
+
+== Verwalteter Checkout und Arbeitsbaum-Snapshot
+
+Der verwaltete Checkout liegt unter:
+
+* `JENKINS_HOME/gretl-datenportal/topic-repo`
+
+Im Modus `managed-git` ist der Update-Ablauf fuer einen bereits existierenden
+Checkout absichtlich streng:
+
+. `git remote set-url origin <url>`
+. `git fetch --prune origin`
+. `git checkout -B <branch> origin/<branch>`
+. `git reset --hard origin/<branch>`
+. `git clean -fd`
+
+Damit entspricht der verwaltete Checkout exakt dem konfigurierten Remote-Stand.
+
+Im Modus `working-tree` wird derselbe Jenkins-interne Zielpfad als Snapshot
+verwendet. Der externe Pfad wird rekursiv kopiert; `.git`, `.gradle`, `build`
+und `.DS_Store` werden ausgeschlossen. Beim Seed-Lauf wird der Snapshot
+aktualisiert, bei reinen Seitenaufrufen oder Formularvalidierungen bleibt er
+unverändert. Der Snapshot verändert das externe Themenrepo nicht.
+
+== Auswirkungen fuer lokale Entwicklung
+
+Das Plugin verwaltet nur seinen eigenen Jenkins-internen Checkout. Das lokale
+Arbeitsverzeichnis ausserhalb von Jenkins bleibt davon unberuehrt.
+
+Für den lokalen Shellstart setzt `datenportal-jenkins-dev/bin/start.sh`
+ohne URL-Override im Default:
+
+* `topicRepositoryUrl=file://...`
+* `topicRepositoryBranch=main`
+
+Dadurch testet Jenkins gegen ein lokales Git-Repository, aber weiterhin ueber
+denselben Checkout-Mechanismus wie spaeter im Betrieb. Für uncommittete
+Entwicklung wird stattdessen `THEMEN_REPO_MODE=working-tree` gesetzt.
+Der Compose-Dev-Stack verwendet bereits fest `working-tree`. Der Shellstart
+setzt die Laufzeit immer auf `dev`, auch bei `managed-git`; Commit/Push ist
+standardmässig deaktiviert.
+
+== Weiterfuehrend
+
+* Der fachliche Inhalt des ausgecheckten Repos ist im Repo
+  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo]
+  dokumentiert.
+* Die lokale Jenkins-Konfiguration, die diese Werte setzt, liegt im Repo
+  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev].
+
+== Isolierte Lieferverarbeitung und Git-Rückschreiben
+
+Zusätzliche globale Felder:
+
+* `topicRepositoryCredentialsId`: ID eines Jenkins-Credentials vom Typ
+  Benutzername/Passwort; für HTTPS-Git ist das Passwort ein Repository-Token.
+* `topicRepositoryWriteBackEnabled`: ausdrücklich freizugebendes Rückschreiben,
+  standardmässig `false`.
+* `topicRepositoryCommitterName` und `topicRepositoryCommitterEmail`: technische
+  Identität des automatischen Commits, bei Rückschreiben obligatorisch.
+
+Beim Seed werden die aufgelösten Werte für URL, Branch und Modus auf dem
+erzeugten Job gespeichert. Änderungen daran benötigen einen erneuten Seed.
+Die Credential-ID, Schreibfreigabe und Commit-Identität liest der Workspace-Step
+dagegen beim jeweiligen Build aus der aktuellen globalen Konfiguration; diese
+Felder allein benötigen nach dem Anwenden der Konfiguration keinen neuen Seed.
+`prepareDatenportalWorkspace` benutzt diese aufgelöste Konfiguration und erstellt
+`<workspace>/topic-repo` für den jeweiligen Build. `managed-git` erhält den aktuellen
+Remote-Stand; `working-tree` eine Kopie des Seeder-Snapshots. Die Snapshot-Kopie und
+Seeder-Aktualisierung verwenden denselben Monitor. Vorschauen schreiben weder den
+externen Arbeitsbaum noch den Seeder-Snapshot zurück und erben keine Kandidaten
+vorheriger Vorschauen.
+
+Der Step benötigt gegenwärtig einen lokalen Controller-Workspace. Er liefert
+Pfad, Repository-Kontext, Ausgangsrevision, Credential-ID, Schreibfreigabe und
+Commit-Identität an die Pipeline. Ein `working-tree`-Snapshot besitzt kein `.git`;
+seine Ausgangsrevision ist entsprechend leer. In der Dev-Laufzeit darf ein
+schreibender Build nur ein lokales `file://`-Testrepository verwenden.
+
+Für HTTPS werden Credentials aus Jenkins bezogen und über ein kurzlebiges
+Askpass-Skript an die Git-CLI gebunden. Das Skript enthält keine Zugangsdaten;
+diese liegen nur in der Prozessumgebung. URL und Kommandozeile bleiben frei von
+Tokens. Die Standardpipeline bindet für Gradles Git-Schritt dieselbe Credential-ID
+mit `gitUsernamePassword` und der Git-Installation `Default`.
+
+`shared/Jenkinsfile` aus dem Themenrepo hält die Lockable-Resources-Sperre
+`datenportal-topic-repository` vom Erstellen des Build-Checkouts bis zum Ende der
+Lieferverarbeitung. Sie serialisiert alle Standardjobs organisationsübergreifend.
+Benutzerdefinierte Jenkinsfiles müssen diese Laufzeitregeln selbst übernehmen.
+
+== Verarbeitung und S3
+
+Die Standardjobs erhalten `PUBLICATION_MODE` (`delivery` oder
+`repository-metadata`) und `RELOAD_PORTAL` (Default `false`). Der zweite Modus
+verwendet das ausgewählte Datenblatt des Build-Checkouts ohne Upload.
+Dateien werden dann auch serverseitig abgewiesen. Die bedingte Ausgabepflicht
+bei CSV für Serien bleibt bestehen.
+
+Der gesamte Aufruf bleibt unter `datenportal-topic-repository`. Die eigene
+S3-Schreibfreigabe kommt aus administrativer Laufzeitkonfiguration, nicht aus
+dem Lieferformular. Ein publizierender `working-tree`-Lauf verändert weiterhin
+kein Git und keinen Seeder-Snapshot; er führt den Gesamtstand auf S3 weiter.
+Nur eine Vorschau lässt auch S3 unverändert. Git schreibt bei Freigabe nur das
+gewählte Datenblatt und wird vor dem Umschalten von `current.json` ausgeführt.

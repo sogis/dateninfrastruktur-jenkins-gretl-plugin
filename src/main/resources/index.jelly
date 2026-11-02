@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+    Provides GRETL Datenportal job catalogues, start forms, and generated Jenkins Pipeline jobs.
+</div>

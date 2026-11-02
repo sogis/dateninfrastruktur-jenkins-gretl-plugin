@@ -1,0 +1,209 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+    <l:layout title="${it.displayName}">
+        <l:main-panel>
+            <link rel="stylesheet" href="${rootURL}/plugin/jenkins-gretl-datenportal-plugin/css/gretl-datenportal.css" />
+            <script src="${rootURL}/plugin/jenkins-gretl-datenportal-plugin/js/gretl-datenportal.js"></script>
+
+            <j:set var="details" value="${it.selectedRunDetails}" />
+
+            <div class="gdp-page">
+                <j:choose>
+                    <j:when test="${details == null}">
+                        <div class="gdp-page-header">
+                            <div>
+                                <h1>Jobstatus</h1>
+                                <p class="gdp-page-description">Build wurde nicht gefunden.</p>
+                            </div>
+                        </div>
+                    </j:when>
+                    <j:otherwise>
+                        <div class="gdp-run-status-view"
+                             data-gdp-run-status-view="true"
+                             data-gdp-status="${details.status}"
+                             data-gdp-run-complete="${details.complete}">
+                            <j:choose>
+                                <j:when test="${details.buildNumber != null}">
+                                    <j:set var="runStatusUrl" value="${rootURL}/${it.urlName}/runStatus?job=${details.jobNameEncoded}&amp;build=${details.buildNumber}" />
+                                </j:when>
+                                <j:otherwise>
+                                    <j:set var="runStatusUrl" value="${rootURL}/${it.urlName}/runStatus?job=${details.jobNameEncoded}&amp;queue=${details.queueId}" />
+                                </j:otherwise>
+                            </j:choose>
+                            <j:set var="pollEnabled" value="${!details.complete}" />
+                            <span hidden="hidden"
+                                  data-gdp-run-status-url="true"
+                                  data-gdp-value="${runStatusUrl}"
+                                  data-gdp-poll-enabled="${pollEnabled}"></span>
+
+                            <div class="gdp-page-header gdp-page-header--with-actions">
+                                <div>
+                                    <a class="gdp-back-link" href="${rootURL}/${it.urlName}">Zurück zur Datenportal-Startseite</a>
+                                    <h1 data-gdp-run-title="true">${details.headline}</h1>
+                                    <p class="gdp-page-description">Read-only Übersicht zu Status, Parametern, Artefakten und Logausgabe.</p>
+                                </div>
+                                <div class="gdp-header-actions">
+                                    <j:choose>
+                                        <j:when test="${details.hasRun()}">
+                                            <a class="jenkins-button"
+                                               href="${rootURL}/${details.run.url}console"
+                                               data-gdp-console-link="true">Logfile öffnen</a>
+                                            <button class="jenkins-button"
+                                                    disabled="disabled"
+                                                    hidden="hidden"
+                                                    data-gdp-console-placeholder="true">Logfile öffnet, sobald der Build läuft</button>
+                                            <a class="jenkins-button"
+                                               href="${rootURL}/${details.run.url}artifact/"
+                                               data-gdp-artifacts-link="true">Artefakte öffnen</a>
+                                            <button class="jenkins-button"
+                                                    disabled="disabled"
+                                                    hidden="hidden"
+                                                    data-gdp-artifacts-placeholder="true">Artefakte folgen nach dem Start</button>
+                                        </j:when>
+                                        <j:otherwise>
+                                            <a class="jenkins-button"
+                                               href="#"
+                                               hidden="hidden"
+                                               data-gdp-console-link="true">Logfile öffnen</a>
+                                            <button class="jenkins-button"
+                                                    disabled="disabled"
+                                                    data-gdp-console-placeholder="true">Logfile öffnet, sobald der Build läuft</button>
+                                            <a class="jenkins-button"
+                                               href="#"
+                                               hidden="hidden"
+                                               data-gdp-artifacts-link="true">Artefakte öffnen</a>
+                                            <button class="jenkins-button"
+                                                    disabled="disabled"
+                                                    data-gdp-artifacts-placeholder="true">Artefakte folgen nach dem Start</button>
+                                        </j:otherwise>
+                                    </j:choose>
+                                </div>
+                            </div>
+
+                            <section class="gdp-run-hero" data-gdp-run-hero="true" data-gdp-status="${details.status}">
+                                <div class="gdp-run-status">
+                                    <span class="gdp-run-status__icon" aria-hidden="true"></span>
+                                    <div>
+                                        <span class="gdp-badge"
+                                              data-gdp-run-badge="true"
+                                              data-gdp-status="${details.status}">${details.statusLabel}</span>
+                                        <strong data-gdp-run-primary-label="true">${details.primaryLabel}</strong>
+                                    </div>
+                                </div>
+                                <dl class="gdp-run-facts">
+                                    <div>
+                                        <dt>Gestartet</dt>
+                                        <dd data-gdp-run-start-time="true">${details.startTime}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Dauer</dt>
+                                        <dd data-gdp-run-duration="true">${details.duration}</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Job</dt>
+                                        <dd data-gdp-run-job-name="true">${details.jobFullDisplayName}</dd>
+                                    </div>
+                                </dl>
+                            </section>
+
+                            <div class="gdp-run-layout">
+                                <section class="gdp-panel">
+                                    <div class="gdp-panel__header">
+                                        <h2>Parameter</h2>
+                                    </div>
+                                    <div data-gdp-parameters="true">
+                                        <j:choose>
+                                            <j:when test="${details.parameters.isEmpty()}">
+                                                <p class="gdp-muted">Keine Parameter gespeichert.</p>
+                                            </j:when>
+                                            <j:otherwise>
+                                                <table class="pane gdp-table gdp-table--compact">
+                                                    <tbody>
+                                                        <j:forEach var="parameter" items="${details.parameters}">
+                                                            <tr>
+                                                                <th>${parameter.name}</th>
+                                                                <td>${parameter.value}</td>
+                                                            </tr>
+                                                        </j:forEach>
+                                                    </tbody>
+                                                </table>
+                                            </j:otherwise>
+                                        </j:choose>
+                                    </div>
+                                </section>
+
+                                <section class="gdp-panel">
+                                    <div data-gdp-artifacts="true">
+                                        <j:choose>
+                                            <j:when test="${details.hasArtifacts()}">
+                                                <details class="gdp-artifact-disclosure" data-gdp-artifact-disclosure="true">
+                                                    <summary class="gdp-panel__header gdp-artifact-disclosure__summary">
+                                                        <h2>Artefakte</h2>
+                                                        <span class="gdp-artifact-count">(${details.artifacts.size()})</span>
+                                                    </summary>
+                                                    <div class="gdp-artifact-list">
+                                                        <j:forEach var="artifact" items="${details.artifacts}">
+                                                            <a class="gdp-artifact" href="${rootURL}/${details.run.url}artifact/${artifact.relativePath}">
+                                                                <span class="gdp-artifact__icon" aria-hidden="true">Datei</span>
+                                                                <span>${artifact.fileName}</span>
+                                                            </a>
+                                                        </j:forEach>
+                                                    </div>
+                                                </details>
+                                            </j:when>
+                                            <j:otherwise>
+                                                <div class="gdp-panel__header">
+                                                    <h2>Artefakte</h2>
+                                                </div>
+                                                <p class="gdp-muted">Keine Artefakte archiviert.</p>
+                                            </j:otherwise>
+                                        </j:choose>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <section class="gdp-panel">
+                                <div class="gdp-panel__header gdp-panel__header--split">
+                                    <div>
+                                        <h2>Logausgabe</h2>
+                                        <p>Die letzten 200 Zeilen aus dem Jenkins-Log.</p>
+                                    </div>
+                                    <j:choose>
+                                        <j:when test="${details.hasRun()}">
+                                            <a class="jenkins-button"
+                                               href="${rootURL}/${details.run.url}console"
+                                               data-gdp-console-link-secondary="true">Vollständiges Log öffnen</a>
+                                            <button class="jenkins-button"
+                                                    disabled="disabled"
+                                                    hidden="hidden"
+                                                    data-gdp-console-placeholder-secondary="true">Log erscheint, sobald der Build läuft</button>
+                                        </j:when>
+                                        <j:otherwise>
+                                            <a class="jenkins-button"
+                                               href="#"
+                                               hidden="hidden"
+                                               data-gdp-console-link-secondary="true">Vollständiges Log öffnen</a>
+                                            <button class="jenkins-button"
+                                                    disabled="disabled"
+                                                    data-gdp-console-placeholder-secondary="true">Log erscheint, sobald der Build läuft</button>
+                                        </j:otherwise>
+                                    </j:choose>
+                                </div>
+                                <div data-gdp-log="true">
+                                    <j:choose>
+                                        <j:when test="${details.hasLogLines()}">
+                                            <pre class="gdp-log-output">${details.logText}</pre>
+                                        </j:when>
+                                        <j:otherwise>
+                                            <p class="gdp-muted">Keine Logzeilen verfügbar.</p>
+                                        </j:otherwise>
+                                    </j:choose>
+                                </div>
+                            </section>
+                        </div>
+                    </j:otherwise>
+                </j:choose>
+            </div>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>

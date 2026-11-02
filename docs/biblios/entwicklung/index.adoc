@@ -1,0 +1,48 @@
+= Entwicklung: Jenkins-Plugin
+:page-layout: docs
+:toc: macro
+:toclevels: 2
+
+Dieses Repository enthaelt die Implementierung des Jenkins-Plugins fuer das
+GRETL-Datenportal. Die Doku beschreibt, wie das Plugin das Themenrepo scannt,
+welche Startformular- und Berechtigungsregeln gelten und wie daraus Seed-Laeufe
+und generierte Pipeline-Jobs entstehen.
+
+toc::[]
+
+== Was gehoert in diesen Bereich?
+
+Dieser Bereich beschreibt:
+
+* Scanner und Validierungsmodell fuer das Themenrepo;
+* RootAction, Startformular und serverseitige Validierung;
+* Berechtigungspruefung ueber `permissions.read` und `permissions.build`;
+* verwalteten Themenrepo-Checkout und globale Plugin-Konfiguration;
+* die Modi `managed-git` und `working-tree` für die Repository-Auflösung;
+* Seed-Builder, Job-Generierung und Pipeline-Rendering.
+
+== Was gehoert nicht in diesen Bereich?
+
+Nicht behandelt werden hier:
+
+* der fachliche Vertrag des Themenrepos;
+* lokale Jenkins-Betriebsdetails, JCasC und Docker-Image-Bau;
+* Endnutzerdokumentation fuer Datenlieferanten.
+
+Die technische Jenkins-Umgebung entscheidet, ob der Plugin-Checkout aus einer
+Runtime-Git-URL oder als lokaler Arbeitsbaum-Snapshot gespeist wird. Die
+Betriebsdetails dazu stehen im Repository `datenportal-jenkins-dev`.
+
+== Kurzfassung
+
+Das Plugin ist die Schicht zwischen dem fachlichen Themenrepo und Jenkins. Es
+scannt und validiert das Repository, stellt ein fixes Startformular bereit,
+erzeugt daraus Jenkins-Jobs und startet diese spaeter mit den passenden
+Datei-Uploads und Parametern.
+
+== Weiterfuehrend
+
+* Fachlicher Vertrag:
+  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo]
+* Lokale Jenkins-Umgebung:
+  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev]

@@ -1,0 +1,9 @@
+<p>
+  <code>managed-git</code> aktualisiert den Jenkins-internen Checkout aus der
+  konfigurierten Git-URL und verarbeitet den committed Branch-Stand.
+  <code>working-tree</code> kopiert beim Seed-Lauf den konfigurierten lokalen
+  Arbeitsbaum inklusive uncommitteter und untracked Dateien in den internen
+  Snapshot. Das externe Repository wird nicht verändert; <code>.git</code>,
+  <code>.gradle</code>, <code>build</code> und <code>.DS_Store</code> werden
+  ausgeschlossen. Der Modus ist für lokale Entwicklung vorgesehen.
+</p>

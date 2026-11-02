@@ -1,0 +1,169 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+    <l:layout title="${it.displayName}">
+        <l:main-panel>
+            <link rel="stylesheet" href="${rootURL}/plugin/jenkins-gretl-datenportal-plugin/css/gretl-datenportal.css" />
+            <script src="${rootURL}/plugin/jenkins-gretl-datenportal-plugin/js/gretl-datenportal.js"></script>
+
+            <j:set var="organization" value="${it.selectedOrganization}" />
+            <j:set var="dataset" value="${it.selectedDataset}" />
+
+            <div class="gdp-page gdp-page--narrow">
+                <j:choose>
+                    <j:when test="${organization == null}">
+                        <div class="gdp-page-header">
+                            <div>
+                                <h1>Job starten</h1>
+                                <p class="gdp-page-description">Organisation wurde nicht gefunden.</p>
+                            </div>
+                        </div>
+                    </j:when>
+                    <j:otherwise>
+                        <div class="gdp-page-header">
+                            <div>
+                                <a class="gdp-back-link" href="${rootURL}/${it.urlName}/jobs">Zurück zu Jobs starten</a>
+                                <h1>${organization.jobDefinition.title}</h1>
+                                <p class="gdp-page-description">${organization.jobDefinition.description}</p>
+                            </div>
+                        </div>
+
+                        <form method="post" action="${rootURL}/${it.urlName}/build" enctype="multipart/form-data" class="gdp-start-form" data-gdp-start-form="true">
+                            <input type="hidden" name="ORGANISATION" value="${organization.id}" />
+
+                            <section class="gdp-panel gdp-form-panel">
+                                <div class="gdp-field gdp-field--required" data-gdp-field="DATASET" data-gdp-required-base="true">
+                                    <label class="gdp-label" for="DATASET">
+                                        Datensatz <span aria-hidden="true">*</span>
+                                    </label>
+                                    <select id="DATASET"
+                                            name="DATASET"
+                                            class="gdp-control gdp-select"
+                                            data-gdp-dataset-selector="true"
+                                            data-gdp-dataset-start-url="${rootURL}/${it.urlName}/start?organization=${organization.id}&amp;dataset=">
+                                        <j:choose>
+                                            <j:when test="${dataset == null}">
+                                                <option value="" selected="selected">Bitte Datensatz auswählen</option>
+                                            </j:when>
+                                            <j:otherwise>
+                                                <option value="">Bitte Datensatz auswählen</option>
+                                            </j:otherwise>
+                                        </j:choose>
+                                        <j:forEach var="candidate" items="${it.selectedOrganizationDatasets}">
+                                            <j:choose>
+                                                <j:when test="${dataset != null and candidate.id == dataset.id}">
+                                                    <option value="${candidate.id}" selected="selected">
+                                                        ${candidate.definition.title} (${candidate.id})
+                                                    </option>
+                                                </j:when>
+                                                <j:otherwise>
+                                                    <option value="${candidate.id}">
+                                                        ${candidate.definition.title} (${candidate.id})
+                                                    </option>
+                                                </j:otherwise>
+                                            </j:choose>
+                                        </j:forEach>
+                                    </select>
+                                </div>
+
+                                <j:if test="${dataset == null}">
+                                    <div class="gdp-empty-state">
+                                        <h3>Bitte Datensatz auswählen.</h3>
+                                        <p>Nach der Auswahl werden die passenden Parameter angezeigt.</p>
+                                    </div>
+                                </j:if>
+
+                                <j:forEach var="field" items="${it.selectedGuiFields}">
+                                    <j:if test="${field.id != 'ORGANISATION' and field.id != 'DATASET'}">
+                                        <div class="gdp-field" data-gdp-field="${field.id}">
+                                            <label class="gdp-label" for="${field.id}">
+                                                ${field.label}
+                                                <j:if test="${field.id == 'SERIES_ID'}">
+                                                    <span data-gdp-issue-required="true" hidden="hidden" aria-hidden="true">*</span>
+                                                </j:if>
+                                                <j:if test="${field.required}">
+                                                    <span aria-hidden="true">*</span>
+                                                </j:if>
+                                            </label>
+
+                                            <j:choose>
+                                                <j:when test="${field.type.id == 'boolean'}">
+                                                    <input id="${field.id}" name="${field.id}" type="checkbox" value="true" />
+                                                </j:when>
+                                                <j:when test="${field.type.id == 'choice'}">
+                                                    <select id="${field.id}" name="${field.id}" class="gdp-control gdp-select">
+                                                        <j:forEach var="choice" items="${field.values}">
+                                                            <j:choose>
+                                                                <j:when test="${choice == field.defaultValue}">
+                                                                    <option value="${choice}" selected="selected">${field.id == 'PUBLICATION_MODE' ? (choice == 'delivery' ? 'Lieferung verarbeiten' : 'Datenblatt aus Repository übernehmen') : choice}</option>
+                                                                </j:when>
+                                                                <j:otherwise>
+                                                                    <option value="${choice}">${field.id == 'PUBLICATION_MODE' ? (choice == 'delivery' ? 'Lieferung verarbeiten' : 'Datenblatt aus Repository übernehmen') : choice}</option>
+                                                                </j:otherwise>
+                                                            </j:choose>
+                                                        </j:forEach>
+                                                    </select>
+                                                </j:when>
+                                                <j:when test="${field.type.id == 'text'}">
+                                                    <textarea id="${field.id}" name="${field.id}" class="gdp-control gdp-textarea">${field.defaultValue}</textarea>
+                                                </j:when>
+                                                <j:when test="${field.type.id == 'file'}">
+                                                    <j:choose>
+                                                        <j:when test="${field.id == 'METADATA_FILE'}">
+                                                            <j:set var="allowedUploadText" value="Erlaubt: .xtf, .xml" />
+                                                            <j:set var="acceptUploadText" value=".xtf,.xml" />
+                                                        </j:when>
+                                                        <j:when test="${field.id == 'DATA_FILE'}">
+                                                            <j:set var="allowedUploadText" value="Erlaubt: .csv" />
+                                                            <j:set var="acceptUploadText" value=".csv,text/csv" />
+                                                        </j:when>
+                                                        <j:otherwise>
+                                                            <j:set var="allowedUploadText" value="Upload für diesen Parameter" />
+                                                            <j:set var="acceptUploadText" value="" />
+                                                        </j:otherwise>
+                                                    </j:choose>
+                                                    <label class="gdp-upload" for="${field.id}">
+                                                        <span class="gdp-upload__content">
+                                                            <strong>Datei auswählen</strong>
+                                                            <span>
+                                                                ${allowedUploadText}
+                                                                <j:if test="${field.maxSizeMb != null}">
+                                                                    , max. ${field.maxSizeMb} MB
+                                                                </j:if>
+                                                            </span>
+                                                        </span>
+                                                        <span class="jenkins-button">Durchsuchen</span>
+                                                        <input id="${field.id}" name="${field.id}" type="file" accept="${acceptUploadText}" class="gdp-upload__input" data-gdp-file-input="true" />
+                                                    </label>
+                                                    <p class="gdp-file-name" data-gdp-file-name="${field.id}">Keine Datei ausgewählt.</p>
+                                                </j:when>
+                                                <j:otherwise>
+                                                    <input id="${field.id}" name="${field.id}" type="text" value="${field.defaultValue}" class="gdp-control" />
+                                                </j:otherwise>
+                                            </j:choose>
+
+                                            <j:if test="${field.description != ''}">
+                                                <p class="gdp-help">${field.description}</p>
+                                            </j:if>
+                                        </div>
+                                    </j:if>
+                                </j:forEach>
+
+                                <div class="gdp-form-actions">
+                                    <button type="reset" class="jenkins-button">Zurücksetzen</button>
+                                    <j:choose>
+                                        <j:when test="${dataset == null}">
+                                            <button type="submit" class="jenkins-button jenkins-button--primary" disabled="disabled">Job starten</button>
+                                        </j:when>
+                                        <j:otherwise>
+                                            <button type="submit" class="jenkins-button jenkins-button--primary">Job starten</button>
+                                        </j:otherwise>
+                                    </j:choose>
+                                </div>
+                            </section>
+                        </form>
+                    </j:otherwise>
+                </j:choose>
+            </div>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>

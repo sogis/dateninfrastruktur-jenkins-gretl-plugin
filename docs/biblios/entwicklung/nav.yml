@@ -1,0 +1,24 @@
+items:
+  - title: Ueberblick
+    page: index.adoc
+
+  - title: Rolle und Grenzen
+    page: zweck.adoc
+
+  - title: Scanner und Laufzeit
+    children:
+      - title: Scan- und Validierungsmodell
+        page: scan-und-validierung.adoc
+      - title: Startformular und Berechtigungen
+        page: startformular-und-berechtigungen.adoc
+      - title: Pipeline-Rendering
+        page: pipeline-rendering.adoc
+      - title: Seed- und Job-Generierung
+        page: seed-und-job-generierung.adoc
+      - title: Themenrepo-Modi, Checkout und Konfiguration
+        page: checkout-und-konfiguration.adoc
+
+  - title: Entwicklung
+    children:
+      - title: Lokale Entwicklung
+        page: lokale-entwicklung.adoc
