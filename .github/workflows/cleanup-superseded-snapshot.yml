@@ -46,13 +46,14 @@ jobs:
             esac
           }
 
-          prefix="${SNAPSHOT_BASE}/jenkins-gretl-datenportal-plugin-${SNAPSHOT_STAMP}"
+          prefix="${SNAPSHOT_BASE}/jenkins-gretl-datenportal-plugin-0.1.0-${SNAPSHOT_STAMP}"
           for suffix in .hpi .hpi.md5 .hpi.sha1 .jar .jar.md5 .jar.sha1 .pom .pom.md5 .pom.sha1; do
             delete_file "${prefix}${suffix}"
           done
           for suffix in maven-metadata.xml maven-metadata.xml.md5 maven-metadata.xml.sha1; do
             delete_file "${SNAPSHOT_BASE}/${suffix}"
           done
+          delete_file "${SNAPSHOT_BASE}"
 
           # The parent metadata only listed the erroneous snapshot. Remove it
           # only when that is still the case; never affect other versions.
