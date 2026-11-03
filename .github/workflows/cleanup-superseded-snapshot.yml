@@ -1,0 +1,77 @@
+name: Cleanup superseded Datenportal snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DELETE_OLD_SNAPSHOT to remove only the erroneous old coordinate'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    if: github.event.inputs.confirm == 'DELETE_OLD_SNAPSHOT'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete only the erroneous old snapshot
+        shell: bash
+        env:
+          MAVEN_USERNAME: ${{ secrets.INTERLIS_MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.INTERLIS_MAVEN_TOKEN }}
+          SNAPSHOT_BASE: https://jars.interlis.guru/snapshots/ch/so/agi/jenkins/jenkins-gretl-datenportal-plugin/0.1.0-SNAPSHOT
+          PARENT_BASE: https://jars.interlis.guru/snapshots/ch/so/agi/jenkins/jenkins-gretl-datenportal-plugin
+          SNAPSHOT_STAMP: 20261103.091939-19
+        run: |
+          set -euo pipefail
+          if [[ -z "${MAVEN_USERNAME:-}" || -z "${MAVEN_PASSWORD:-}" ]]; then
+            echo '::error::Missing INTERLIS_MAVEN_USERNAME or INTERLIS_MAVEN_TOKEN repository secret.'
+            exit 1
+          fi
+
+          http_code() {
+            curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+              --user "${MAVEN_USERNAME}:${MAVEN_PASSWORD}" "$@"
+          }
+
+          delete_file() {
+            local url="$1"
+            local code
+            code="$(http_code --request DELETE "$url")"
+            case "$code" in
+              200|204|404) echo "DELETE ${url} -> ${code}" ;;
+              *) echo "DELETE ${url} -> ${code}" >&2; return 1 ;;
+            esac
+          }
+
+          prefix="${SNAPSHOT_BASE}/jenkins-gretl-datenportal-plugin-${SNAPSHOT_STAMP}"
+          for suffix in .hpi .hpi.md5 .hpi.sha1 .jar .jar.md5 .jar.sha1 .pom .pom.md5 .pom.sha1; do
+            delete_file "${prefix}${suffix}"
+          done
+          for suffix in maven-metadata.xml maven-metadata.xml.md5 maven-metadata.xml.sha1; do
+            delete_file "${SNAPSHOT_BASE}/${suffix}"
+          done
+
+          # The parent metadata only listed the erroneous snapshot. Remove it
+          # only when that is still the case; never affect other versions.
+          parent_metadata="$(curl --silent --show-error --user "${MAVEN_USERNAME}:${MAVEN_PASSWORD}" \
+            "${PARENT_BASE}/maven-metadata.xml" || true)"
+          versions="$(printf '%s' "$parent_metadata" | grep -o '<version>[^<]*</version>' | sed 's/<[^>]*>//g' || true)"
+          if [[ "$versions" == "0.1.0-SNAPSHOT" ]]; then
+            for suffix in maven-metadata.xml maven-metadata.xml.md5 maven-metadata.xml.sha1; do
+              delete_file "${PARENT_BASE}/${suffix}"
+            done
+          else
+            echo "Parent metadata contains other versions; leaving it unchanged."
+            printf '%s\n' "$versions"
+          fi
+
+          # Verify that the old HPI can no longer be read.
+          code="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' "${prefix}.hpi")"
+          if [[ "$code" != "404" ]]; then
+            echo "Old HPI still readable: HTTP ${code}" >&2
+            exit 1
+          fi
+          echo "Old snapshot removed and verified as 404."

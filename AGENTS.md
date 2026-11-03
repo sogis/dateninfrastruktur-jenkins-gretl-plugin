@@ -12,7 +12,7 @@ Eigenständige Kopie des einen projektspezifischen Jenkins-Plugins: Themenrepo-S
 
 ## Besondere Regeln
 
-- Repositoryname und Herkunft ändern; technische Plugin-ID `jenkins-gretl-datenportal-plugin` zunächst beibehalten.
+- Repositoryname und Herkunft ändern; technische Plugin-ID `jenkins-gretl-dateninfrastruktur-plugin` zunächst beibehalten.
 - Ebenso `gretlDatenportalJobs`, `prepareDatenportalWorkspace`, Seedjobname und Java-/Jelly-Verträge gemäss Auftrag erhalten. Keine globale Namespace-Ersetzung.
 - Bestehende Tests und Lizenzhinweise erhalten. Datenportal-Quellrepo unverändert lassen.
 - Jenkins-Teamrechte für Jobausführung sind keine ClickHouse-Datenrechte. Keine entsprechende Rollenautomatik in dieses Plugin verlagern.

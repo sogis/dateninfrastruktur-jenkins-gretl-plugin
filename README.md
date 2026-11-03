@@ -4,8 +4,10 @@ Jenkins-Plugin für GRETL-Datenportal-Katalog, Startformular, Seed-Job und
 generierte Pipeline-Jobs in der lokalen Dateninfrastruktur-Grundinstallation.
 
 Das Git-Repository heisst jetzt `dateninfrastruktur-jenkins-gretl-plugin`. Die
-technische Jenkins-Plugin-ID bleibt `jenkins-gretl-datenportal-plugin`; deshalb
-bleiben HPI-Dateiname und Jenkins-Asset-Pfade unverändert.
+technische Jenkins-Plugin-ID und der Maven-Artefaktname lauten
+`jenkins-gretl-dateninfrastruktur-plugin`; HPI-Dateiname und Jenkins-Asset-Pfade
+wurden entsprechend angepasst. Die alte Koordinate
+`jenkins-gretl-datenportal-plugin` wird nicht mehr verwendet.
 
 ## Rolle im Gesamtsystem
 
@@ -39,13 +41,13 @@ mvn -ntp package
 ```
 
 Das lokale HPI landet unter
-`target/jenkins-gretl-datenportal-plugin.hpi`.
+`target/jenkins-gretl-dateninfrastruktur-plugin.hpi`.
 
 ### Plugin in die lokale Jenkins-Umgebung installieren
 
 ```bash
 cd ../dateninfrastruktur-jenkins-dev
-./bin/install-gretl-datenportal-plugin.sh
+./bin/install-gretl-dateninfrastruktur-plugin.sh
 ```
 
 Wenn Jenkins bereits laeuft, ist anschliessend ein voller Restart noetig.
@@ -59,7 +61,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 mvn -ntp package
 
 cd ../dateninfrastruktur-jenkins-dev
-./bin/install-gretl-datenportal-plugin.sh
+./bin/install-gretl-dateninfrastruktur-plugin.sh
 ./bin/start.sh
 ```
 
@@ -171,19 +173,26 @@ Benötigte Repository-Secrets:
 Der Workflow
 `.github/workflows/maven-publish.yml` baut mit Java 21 und führt
 `mvn clean deploy` gegen `interlis-guru` aus. Das HPI heisst weiterhin
-`target/jenkins-gretl-datenportal-plugin.hpi`; die technische Plugin-ID
-`jenkins-gretl-datenportal-plugin` bleibt unverändert.
+`target/jenkins-gretl-dateninfrastruktur-plugin.hpi`; die technische Plugin-ID
+`jenkins-gretl-dateninfrastruktur-plugin` bleibt unverändert.
 
 Lokale Prüfung des veröffentlichten Artefakts:
 
 ```bash
 mvn -ntp dependency:get \
-  -Dartifact=ch.so.agi.jenkins:jenkins-gretl-datenportal-plugin:0.1.0-SNAPSHOT:hpi \
+  -Dartifact=ch.so.agi.jenkins:jenkins-gretl-dateninfrastruktur-plugin:0.1.0-SNAPSHOT:hpi \
   -DremoteRepositories=interlis-guru::default::https://jars.interlis.guru/snapshots/ -U
 ```
 
 Danach den SHA256 des heruntergeladenen HPI mit dem lokal gebauten HPI
 vergleichen. Ein Release-Tag ist für diese Etappe nicht vorgesehen.
+
+Die frühere Koordinate `ch.so.agi.jenkins:jenkins-gretl-datenportal-plugin`
+darf nicht weiterverwendet werden. Der einmalig fehlerhaft veröffentlichte
+Snapshot wird über den manuell gestarteten Workflow
+`.github/workflows/cleanup-superseded-snapshot.yml` entfernt; der Workflow
+verlangt die Bestätigung `DELETE_OLD_SNAPSHOT` und löscht ausschliesslich den
+alten Snapshot-Pfad.
 
 ## Langform-Doku
 

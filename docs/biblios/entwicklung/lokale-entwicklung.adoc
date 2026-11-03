@@ -20,7 +20,7 @@ Die Tests und das HPI laufen auf Java 21.
 
 ```bash
 cd ../dateninfrastruktur-jenkins-dev
-./bin/install-gretl-datenportal-plugin.sh
+./bin/install-gretl-dateninfrastruktur-plugin.sh
 ./bin/start.sh
 ```
 

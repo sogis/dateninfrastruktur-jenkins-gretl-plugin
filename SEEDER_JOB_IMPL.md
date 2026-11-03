@@ -5,7 +5,7 @@ eine konkrete Implementierung, keine weitere Architekturfindung.
 
 ## Zielbild
 
-Das Jenkins-Plugin `jenkins-gretl-datenportal-plugin` soll den Seed-Job selbst
+Das Jenkins-Plugin `jenkins-gretl-dateninfrastruktur-plugin` soll den Seed-Job selbst
 bereitstellen. In einer frischen Jenkins-Installation soll nach der
 Plugin-Konfiguration automatisch ein Job `gretl-datenportal-seed` existieren,
 der das Themenrepo periodisch scannt und daraus die Datenportal-Workflow-Jobs
@@ -595,7 +595,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 mvn -ntp package
 
 cd ../datenportal-jenkins-dev
-./bin/install-gretl-datenportal-plugin.sh
+./bin/install-gretl-dateninfrastruktur-plugin.sh
 ./bin/start.sh
 ```
 
@@ -715,7 +715,7 @@ cd ../datenportal-jenkins-gretl-plugin
 mvn -ntp package
 
 cd ../datenportal-jenkins-dev
-./bin/install-gretl-datenportal-plugin.sh
+./bin/install-gretl-dateninfrastruktur-plugin.sh
 ./bin/start.sh
 ```
 

@@ -7,7 +7,7 @@ toc::[]
 
 == Rolle im Gesamtsystem
 
-`jenkins-gretl-datenportal-plugin` ist die Implementierungsschicht zwischen dem
+`jenkins-gretl-dateninfrastruktur-plugin` ist die Implementierungsschicht zwischen dem
 fachlichen Themenrepo und Jenkins. Das Plugin entscheidet, welche Ordner als
 Organisationen und Datensaetze gelten, welche Jobs erzeugt werden und welche
 Parameter beim Start eines Jobs an Jenkins uebergeben werden.

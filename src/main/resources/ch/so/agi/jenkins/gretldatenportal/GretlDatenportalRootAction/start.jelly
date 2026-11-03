@@ -2,8 +2,8 @@
 <j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
     <l:layout title="${it.displayName}">
         <l:main-panel>
-            <link rel="stylesheet" href="${rootURL}/plugin/jenkins-gretl-datenportal-plugin/css/gretl-datenportal.css" />
-            <script src="${rootURL}/plugin/jenkins-gretl-datenportal-plugin/js/gretl-datenportal.js"></script>
+            <link rel="stylesheet" href="${rootURL}/plugin/jenkins-gretl-dateninfrastruktur-plugin/css/gretl-datenportal.css" />
+            <script src="${rootURL}/plugin/jenkins-gretl-dateninfrastruktur-plugin/js/gretl-datenportal.js"></script>
 
             <j:set var="organization" value="${it.selectedOrganization}" />
             <j:set var="dataset" value="${it.selectedDataset}" />
