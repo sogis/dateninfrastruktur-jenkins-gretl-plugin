@@ -51,7 +51,7 @@ zuerst durch einen neuen Seed-Lauf materialisiert werden.
 == Weiterfuehrend
 
 * Die kanonische Rolle von `shared/Jenkinsfile` ist im Repo
-  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo]
+  link:https://github.com/sogis/dateninfrastruktur-themenrepo[dateninfrastruktur-themenrepo]
   beschrieben.
 * Die lokale Jenkins-Umgebung, die diese Pipeline spaeter ausfuehrt, liegt im
-  Repo link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev].
+  Repo link:https://github.com/sogis/dateninfrastruktur-jenkins-dev[dateninfrastruktur-jenkins-dev].

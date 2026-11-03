@@ -8,7 +8,7 @@ toc::[]
 == Plugin bauen
 
 ```bash
-cd ../datenportal-jenkins-gretl-plugin
+cd ../dateninfrastruktur-jenkins-gretl-plugin
 export JAVA_HOME="${JAVA21_HOME:-$HOME/.sdkman/candidates/java/current}"
 export PATH="$JAVA_HOME/bin:$PATH"
 mvn -ntp package
@@ -19,7 +19,7 @@ Die Tests und das HPI laufen auf Java 21.
 == In die lokale Jenkins-Umgebung integrieren
 
 ```bash
-cd ../datenportal-jenkins-dev
+cd ../dateninfrastruktur-jenkins-dev
 ./bin/install-gretl-datenportal-plugin.sh
 ./bin/start.sh
 ```
@@ -39,7 +39,7 @@ laufender Job sieht nicht automatisch den aktuellen Arbeitsbaum.
 
 Nach einer Plugin-Änderung: HPI bauen, installieren, Jenkins vollständig neu
 starten und anschließend erneut seeden. Für einen isolierten Jenkins-Controller
-steht `datenportal-jenkins-dev/bin/start-fresh.sh` zur Verfügung.
+steht `dateninfrastruktur-jenkins-dev/bin/start-fresh.sh` zur Verfügung.
 
 Danach in Jenkins:
 
@@ -63,6 +63,6 @@ Typische manuelle Pruefpunkte:
 == Weiterfuehrend
 
 * Die lokale Jenkins- und Docker-Umgebung liegt im Repo
-  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev].
+  link:https://github.com/sogis/dateninfrastruktur-jenkins-dev[dateninfrastruktur-jenkins-dev].
 * Der fachliche Inhalt, gegen den getestet wird, liegt im Repo
-  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo].
+  link:https://github.com/sogis/dateninfrastruktur-themenrepo[dateninfrastruktur-themenrepo].

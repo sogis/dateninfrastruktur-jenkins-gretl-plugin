@@ -31,7 +31,7 @@ Nicht behandelt werden hier:
 
 Die technische Jenkins-Umgebung entscheidet, ob der Plugin-Checkout aus einer
 Runtime-Git-URL oder als lokaler Arbeitsbaum-Snapshot gespeist wird. Die
-Betriebsdetails dazu stehen im Repository `datenportal-jenkins-dev`.
+Betriebsdetails dazu stehen im Repository `dateninfrastruktur-jenkins-dev`.
 
 == Kurzfassung
 
@@ -43,6 +43,6 @@ Datei-Uploads und Parametern.
 == Weiterfuehrend
 
 * Fachlicher Vertrag:
-  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo]
+  link:https://github.com/sogis/dateninfrastruktur-themenrepo[dateninfrastruktur-themenrepo]
 * Lokale Jenkins-Umgebung:
-  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev]
+  link:https://github.com/sogis/dateninfrastruktur-jenkins-dev[dateninfrastruktur-jenkins-dev]

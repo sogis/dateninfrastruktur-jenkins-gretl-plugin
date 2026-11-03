@@ -5,8 +5,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
 
 permissions:
   contents: read
@@ -45,31 +43,15 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v7
 
-      - name: Select repository and Maven version
-        id: metadata
+      - name: Validate Maven credentials
         shell: bash
         run: |
           set -euo pipefail
-
           if [[ -z "${MAVEN_USERNAME:-}" || -z "${MAVEN_PASSWORD:-}" ]]; then
             echo '::error::Missing INTERLIS_MAVEN_USERNAME or INTERLIS_MAVEN_TOKEN repository secret.'
             exit 1
           fi
-
-          if [[ "${GITHUB_REF_TYPE}" == 'branch' && "${GITHUB_REF_NAME}" == 'main' ]]; then
-            echo 'repository_url=https://jars.interlis.guru/snapshots/' >> "${GITHUB_OUTPUT}"
-            echo 'Publishing the existing Maven snapshot version from pom.xml.'
-            exit 0
-          fi
-
-          if [[ "${GITHUB_REF_TYPE}" != 'tag' || ! "${GITHUB_REF_NAME}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "::error::Release tags must use the format vMAJOR.MINOR.PATCH (received: ${GITHUB_REF_NAME})."
-            exit 1
-          fi
-
-          echo 'repository_url=https://jars.interlis.guru/releases/' >> "${GITHUB_OUTPUT}"
-          echo "revision=${BASH_REMATCH[1]}" >> "${GITHUB_OUTPUT}"
-          echo "Publishing release ${BASH_REMATCH[1]}."
+          echo 'Publishing the existing Maven snapshot version from pom.xml to the snapshot repository.'
 
       - name: Set up Java 21 and Maven credentials
         uses: actions/setup-java@v6
@@ -83,21 +65,14 @@ jobs:
 
       - name: Build and publish
         env:
-          MAVEN_REPOSITORY_URL: ${{ steps.metadata.outputs.repository_url }}
-          MAVEN_REVISION: ${{ steps.metadata.outputs.revision }}
+          MAVEN_REPOSITORY_URL: https://jars.interlis.guru/snapshots/
         shell: bash
         run: |
           set -euo pipefail
 
-          maven_args=(
-            --batch-mode
-            --no-transfer-progress
-            '-Dspotbugs.skip=true'
-            "-DaltDeploymentRepository=interlis-guru::${MAVEN_REPOSITORY_URL}"
-          )
-
-          if [[ -n "${MAVEN_REVISION:-}" ]]; then
-            maven_args+=("-Drevision=${MAVEN_REVISION}")
-          fi
-
-          mvn "${maven_args[@]}" clean deploy
+          mvn \
+            --batch-mode \
+            --no-transfer-progress \
+            '-Dspotbugs.skip=true' \
+            "-DaltDeploymentRepository=interlis-guru::${MAVEN_REPOSITORY_URL}" \
+            clean deploy

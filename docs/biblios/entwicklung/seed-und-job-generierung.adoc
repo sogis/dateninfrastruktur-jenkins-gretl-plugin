@@ -85,7 +85,7 @@ oder den gesamten Materialisierungslauf beeinflusst.
 == Weiterfuehrend
 
 * Die Struktur, die der Seed-Builder scannt, liegt im Repo
-  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo].
+  link:https://github.com/sogis/dateninfrastruktur-themenrepo[dateninfrastruktur-themenrepo].
 * Der lokale Seed-Job und Jenkins-Start sind im Repo
-  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev]
+  link:https://github.com/sogis/dateninfrastruktur-jenkins-dev[dateninfrastruktur-jenkins-dev]
   dokumentiert.

@@ -29,15 +29,15 @@ Das Plugin uebernimmt unter anderem:
 |===
 | Repository | Rolle | Gehoert hierher?
 
-| `datenportal-jenkins-gretl-plugin`
+| `dateninfrastruktur-jenkins-gretl-plugin`
 | Scanner, UI, Rechte, Seed-Builder, Job-Generierung, Rendering
 | Ja
 
-| `datenportal-themenrepo`
+| `dateninfrastruktur-themenrepo`
 | fachliche Struktur, Defaults, Gradle-Build-Vertrag
 | Nein
 
-| `datenportal-jenkins-dev`
+| `dateninfrastruktur-jenkins-dev`
 | lokaler Jenkins, Offline-Bundle, JCasC, Docker-Image
 | Nein
 |===
@@ -55,6 +55,6 @@ auch nicht die lokale Jenkins-Betriebsumgebung. Dadurch bleibt klar:
 == Weiterfuehrend
 
 * Fachlicher Vertrag:
-  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo]
+  link:https://github.com/sogis/dateninfrastruktur-themenrepo[dateninfrastruktur-themenrepo]
 * Lokale Betriebsumgebung:
-  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev]
+  link:https://github.com/sogis/dateninfrastruktur-jenkins-dev[dateninfrastruktur-jenkins-dev]

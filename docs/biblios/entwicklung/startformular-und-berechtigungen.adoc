@@ -163,6 +163,6 @@ Zusatzfelder aus Repository-YAML werden nicht akzeptiert.
 == Weiterfuehrend
 
 * Die fachliche Beschreibung der Organisations-YAML gehoert ins Repo
-  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo].
+  link:https://github.com/sogis/dateninfrastruktur-themenrepo[dateninfrastruktur-themenrepo].
 * Die lokale Jenkins-Umgebung fuer manuelle Formular- und Upload-Tests liegt im
-  Repo link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev].
+  Repo link:https://github.com/sogis/dateninfrastruktur-jenkins-dev[dateninfrastruktur-jenkins-dev].

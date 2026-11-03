@@ -63,7 +63,7 @@ Abgelehnt werden insbesondere:
 == Weiterfuehrend
 
 * Die kanonische Struktur von Organisationen und Datensaetzen ist im Repo
-  link:https://codeberg.org/edigonzales/datenportal-themenrepo[datenportal-themenrepo]
+  link:https://github.com/sogis/dateninfrastruktur-themenrepo[dateninfrastruktur-themenrepo]
   dokumentiert.
 * Die lokale Integrationsumgebung fuer Seed-Laeufe liegt im Repo
-  link:https://codeberg.org/edigonzales/datenportal-jenkins-dev[datenportal-jenkins-dev].
+  link:https://github.com/sogis/dateninfrastruktur-jenkins-dev[dateninfrastruktur-jenkins-dev].
