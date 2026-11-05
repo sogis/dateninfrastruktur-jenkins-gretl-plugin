@@ -1,0 +1,9 @@
+node('built-in') {
+    try {
+        diClaimDelivery()
+        diRunCsv()
+        diCompleteDelivery()
+    } finally {
+        diCleanDelivery()
+    }
+}

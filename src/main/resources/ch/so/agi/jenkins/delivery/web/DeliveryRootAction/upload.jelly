@@ -1,0 +1,14 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+  <l:layout title="CSV auswählen"><l:main-panel>
+    <h1>CSV auswählen</h1>
+    <p>Genau eine CSV bis ${request.getAttribute('uploadLimit')} Bytes auswählen.</p>
+    <form id="di-upload" class="no-json" method="post" data-endpoint="${rootURL}/data-delivery/upload?id=${request.getAttribute('submission')}"
+          data-crumb-field="${it.crumbField}" data-crumb="${it.crumb}" data-key="${request.getAttribute('uploadKey')}">
+      <label>CSV-Datei <input name="file" type="file" accept=".csv,text/csv" required="required"/></label>
+      <button type="submit" class="jenkins-button">CSV einreichen</button>
+    </form>
+    <p id="di-upload-message" role="status" aria-live="polite"></p>
+    <script src="${rootURL}/plugin/jenkins-gretl-dateninfrastruktur-plugin/js/delivery-upload.js" defer="defer"></script>
+  </l:main-panel></l:layout>
+</j:jelly>

@@ -1,0 +1,9 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+  <j:set var="row" value="${request.getAttribute('report')}"/>
+  <l:layout title="Lieferbericht"><l:main-panel>
+    <h1>Lieferbericht</h1><p>${it.stateLabel(row.state())}</p><p>${row.message()}</p><p>${row.errorCode()}</p>
+    <ul><j:forEach var="step" items="${row.steps()}"><li>${step.checkpoint()}</li></j:forEach></ul>
+    <p><a href="${rootURL}/data-delivery/status?id=${row.submissionId()}">Zum Lieferstatus</a></p>
+  </l:main-panel></l:layout>
+</j:jelly>

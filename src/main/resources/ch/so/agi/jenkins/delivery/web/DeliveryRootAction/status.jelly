@@ -1,0 +1,26 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+  <j:set var="row" value="${request.getAttribute('delivery')}"/>
+  <l:layout title="Lieferstatus"><l:main-panel>
+    <h1>Lieferstatus</h1><h2>${row.datasetTitle()}</h2>
+    <p id="di-delivery-state">${it.stateLabel(row.state())}</p><p>${row.message()}</p>
+    <dl><dt>Lieferkennung</dt><dd>${row.submissionId()}</dd><dt>Erstellt (UTC)</dt><dd>${row.createdAt()}</dd><dt>Dateiname</dt><dd>${row.originalName()}</dd><dt>Dateigrösse</dt><dd>${row.inputSize()}</dd></dl>
+    <p><a href="${rootURL}/data-delivery/report?id=${row.submissionId()}">Bereinigter Lieferbericht</a></p>
+    <j:if test="${row.state() == 'UPLOADING' and it.processingReady}"><p><a href="${rootURL}/data-delivery/uploadForm?id=${row.submissionId()}">CSV auswählen</a></p></j:if>
+    <j:if test="${row.state() == 'FAILED_RETRYABLE' and it.processingReady}">
+      <form method="post" action="${rootURL}/data-delivery/retry">
+        <input type="hidden" name="${it.crumbField}" value="${it.crumb}"/><input type="hidden" name="commandId" value="${it.freshCommand()}"/>
+        <input type="hidden" name="id" value="${row.submissionId()}"/><input type="hidden" name="statusVersion" value="${row.statusVersion()}"/>
+        <label>Begründung <input name="reason" required="required" maxlength="4000"/></label><button type="submit" class="jenkins-button">Neuer Versuch</button>
+      </form>
+    </j:if>
+    <j:if test="${it.canCancel(row.state())}">
+      <form method="post" action="${rootURL}/data-delivery/cancel">
+        <input type="hidden" name="${it.crumbField}" value="${it.crumb}"/><input type="hidden" name="commandId" value="${it.freshCommand()}"/>
+        <input type="hidden" name="id" value="${row.submissionId()}"/><input type="hidden" name="statusVersion" value="${row.statusVersion()}"/>
+        <label>Begründung <input name="reason" required="required" maxlength="4000"/></label><button type="submit" class="jenkins-button">Auftrag abbrechen</button>
+      </form>
+    </j:if>
+    <p><a href="${rootURL}/data-delivery/">Zur Übersicht</a></p>
+  </l:main-panel></l:layout>
+</j:jelly>

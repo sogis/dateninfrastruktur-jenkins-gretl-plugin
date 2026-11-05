@@ -1,0 +1,37 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
+  <l:layout title="CSV-Anlieferung"><l:main-panel>
+    <h1>CSV-Anlieferung</h1>
+    <j:if test="${!it.processingReady}"><p>Die CSV-Verarbeitung ist noch nicht freigegeben.</p></j:if>
+    <form method="get" action="${rootURL}/data-delivery/">
+      <label for="delivery-search">Datensätze suchen</label>
+      <input id="delivery-search" name="search" value="${request.getAttribute('search')}" maxlength="100"/>
+      <button type="submit" class="jenkins-button">Suchen</button>
+    </form>
+    <h2>Lieferberechtigte Datensätze</h2>
+    <j:forEach var="row" items="${request.getAttribute('eligible')}">
+      <section class="jenkins-card">
+        <h3>${row.title()}</h3><p>${row.office()} · Ausgabe ${row.issueKey()}</p>
+        <j:if test="${it.processingReady}">
+          <form method="post" action="${rootURL}/data-delivery/prepare">
+            <input type="hidden" name="${it.crumbField}" value="${it.crumb}"/>
+            <input type="hidden" name="commandId" value="${it.freshCommand()}"/>
+            <input type="hidden" name="datasetId" value="${row.datasetId()}"/>
+            <input type="hidden" name="issueId" value="${row.issueId()}"/>
+            <input type="hidden" name="configurationDigest" value="${row.configurationDigest()}"/>
+            <label>Liefermodus <select name="mode">
+              <j:forEach var="mode" items="${row.allowedModes()}"><option value="${mode}"><j:choose><j:when test="${mode == 'replace'}">Vollständiger Ersatz</j:when><j:otherwise>Ergänzen</j:otherwise></j:choose></option></j:forEach>
+            </select></label>
+            <label>Kommentar <input name="comment" maxlength="4000"/></label>
+            <p>Eine gültige Lieferung wird automatisch angenommen und veröffentlicht. Die Berechtigung wird bei der Annahme erneut geprüft.</p>
+            <button type="submit" class="jenkins-button">CSV-Auswahl vorbereiten</button>
+          </form>
+        </j:if>
+      </section>
+    </j:forEach>
+    <h2>Lieferaufträge</h2>
+    <ul><j:forEach var="row" items="${request.getAttribute('submissions')}">
+      <li><a href="${rootURL}/data-delivery/status?id=${row.submissionId()}">${row.datasetTitle()} – ${it.stateLabel(row.state())}</a> · ${row.createdAt()}</li>
+    </j:forEach></ul>
+  </l:main-panel></l:layout>
+</j:jelly>

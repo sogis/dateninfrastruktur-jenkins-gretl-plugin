@@ -1,4 +1,2 @@
 <?jelly escape-by-default='true'?>
-<div>
-    Provides GRETL Datenportal job catalogues, start forms, and generated Jenkins Pipeline jobs.
-</div>
+<div>CSV-Anlieferung mit Keycloak-Identität, zentraler Fachprüfung und einem technischen Job.</div>

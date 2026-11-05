@@ -16,8 +16,8 @@
     <version>${revision}</version>
     <packaging>hpi</packaging>
 
-    <name>GRETL Datenportal Jobs</name>
-    <description>Jenkins plugin for GRETL Datenportal job catalogues, forms, and generated pipeline jobs.</description>
+    <name>Dateninfrastruktur Anlieferung</name>
+    <description>OIDC-bound CSV delivery, one fixed technical Jenkins job and central Admin ingestion API.</description>
     <url>https://github.com/sogis/dateninfrastruktur-jenkins-gretl-plugin</url>
 
     <licenses>
@@ -56,7 +56,7 @@
     </pluginRepositories>
 
     <properties>
-        <revision>0.1.0-SNAPSHOT</revision>
+        <revision>0.2.0-SNAPSHOT</revision>
         <changelist />
         <scmTag>HEAD</scmTag>
         <jenkins.version>2.555.2</jenkins.version>
@@ -76,63 +76,14 @@
     </dependencyManagement>
 
     <dependencies>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci.plugins</groupId>
-            <artifactId>credentials</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci.plugins.workflow</groupId>
-            <artifactId>workflow-step-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.jenkins.plugins</groupId>
-            <artifactId>snakeyaml-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci.plugins.workflow</groupId>
-            <artifactId>workflow-job</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci.plugins.workflow</groupId>
-            <artifactId>workflow-cps</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci.plugins</groupId>
-            <artifactId>matrix-auth</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.kohsuke</groupId>
-            <artifactId>access-modifier-suppressions</artifactId>
-            <version>1.35</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jenkins.plugins</groupId>
-            <artifactId>file-parameters</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci.plugins</groupId>
-            <artifactId>email-ext</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci.plugins.workflow</groupId>
-            <artifactId>workflow-durable-task-step</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jenkins-ci.plugins.workflow</groupId>
-            <artifactId>workflow-basic-steps</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <dependency><groupId>org.jenkins-ci.plugins</groupId><artifactId>oic-auth</artifactId><version>4.731.v4932b_506e767</version></dependency>
+        <dependency><groupId>io.jenkins.plugins</groupId><artifactId>jackson3-api</artifactId><version>3.1.4-81.v804303fd947a_</version></dependency>
+        <dependency><groupId>org.jenkins-ci.plugins</groupId><artifactId>credentials</artifactId></dependency>
+        <dependency><groupId>org.jenkins-ci.plugins</groupId><artifactId>plain-credentials</artifactId><version>199.v9f8e1f741799</version></dependency>
+        <dependency><groupId>org.jenkins-ci.plugins.workflow</groupId><artifactId>workflow-step-api</artifactId></dependency>
+        <dependency><groupId>org.jenkins-ci.plugins.workflow</groupId><artifactId>workflow-job</artifactId></dependency>
+        <dependency><groupId>org.jenkins-ci.plugins.workflow</groupId><artifactId>workflow-cps</artifactId></dependency>
+        <dependency><groupId>org.jenkins-ci.plugins</groupId><artifactId>matrix-auth</artifactId></dependency>
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
     </dependencies>
 </project>
