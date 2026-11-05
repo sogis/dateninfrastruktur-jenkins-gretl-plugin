@@ -21,3 +21,11 @@ Eigenständige Kopie des einen projektspezifischen Jenkins-Plugins: Themenrepo-S
 ## Nachweise
 
 Den vorhandenen Maven-Test-/Paketweg mit der vorgesehenen Java-Version nutzen, beispielsweise `mvn -ntp package` im Repo-Root, sofern der übernommene Build dies bestätigt. HPI-Build und Hash dokumentieren; Installation, Formular, Assetpfade und Seedjob im neuen Dev-Stack prüfen. Kein Pluginrelease und kein Remote-Push verlangt.
+
+## Geltung der historischen Aufträge
+
+Die vorstehenden MA-0–F-/Grundinstallationsgrenzen gelten nur für ihre damaligen
+Aufträge. Für den ausdrücklich aktivierten MA-G-Auftrag gilt `../AGENTS.md` und
+vollständig `../dateninfrastruktur-dev-stack/docs/implementation/storage-and-delivery/`.
+Aktive Altverträge werden gemäss MA-G ersetzt; Sicherheits- und Datenerhaltungsregeln
+bleiben bindend. Historische Dokumente und Nutzerarbeit nicht umschreiben.
