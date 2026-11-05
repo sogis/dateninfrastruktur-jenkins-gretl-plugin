@@ -63,22 +63,27 @@ public final class IncomingUploadStore {
         }
     }
     public static Evidence receiveBounded(InputStream stream,Path temporary,long limit,String name)throws IOException{
-        validateName(name);var digest=sha();long count=0;boolean first=true;boolean textStarted=false;
+        validateName(name);var digest=sha();long count=0;boolean first=true;byte[] signature=new byte[4];int signatureLength=0;
         try(var out=FileChannel.open(temporary,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){
             byte[] buffer=new byte[65536];
             for(int n;(n=first?stream.readNBytes(buffer,0,4):stream.read(buffer))>0;){
                 int textOffset=0;
                 if(first){
                     first=false;
-                    boolean zip=n>=4 && buffer[0]=='P' && buffer[1]=='K' &&
-                        ((buffer[2]==3 && buffer[3]==4)||(buffer[2]==5 && buffer[3]==6)||(buffer[2]==7 && buffer[3]==8));
-                    if(zip || (n>=2 && (buffer[0]&255)==31 && (buffer[1]&255)==139))throw new DeliveryProblem(400,"INVALID_CSV_CONTENT");
                     if(n>=3 && (buffer[0]&255)==239 && (buffer[1]&255)==187 && (buffer[2]&255)==191)textOffset=3;
                 }
                 if(n>limit-count)throw new DeliveryProblem(413,"INPUT_TOO_LARGE");
                 for(int i=textOffset;i<n;i++){
                     byte b=buffer[i];if(b==0)throw DeliveryProblem.invalid();
-                    if(!textStarted && b!=' ' && b!='\t' && b!='\r' && b!='\n'){textStarted=true;if(b=='<')throw new DeliveryProblem(400,"INVALID_CSV_CONTENT");}
+                    if(signatureLength==0 && (b==' ' || (b>=9 && b<=13)))continue;
+                    if(signatureLength<signature.length){
+                        signature[signatureLength++]=b;
+                        if((signatureLength==1 && b=='<') ||
+                           (signatureLength==2 && (signature[0]&255)==31 && (b&255)==139) ||
+                           (signatureLength==4 && signature[0]=='P' && signature[1]=='K' &&
+                             ((signature[2]==3 && b==4)||(signature[2]==5 && b==6)||(signature[2]==7 && b==8))))
+                            throw new DeliveryProblem(400,"INVALID_CSV_CONTENT");
+                    }
                 }
                 digest.update(buffer,0,n);write(out,buffer,n);count+=n;
             }

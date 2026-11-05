@@ -16,8 +16,9 @@ Die einzige technische Pipeline heisst `di-csv-ingest`. Sie nutzt
 Der Dispatcher prüft ausstehende Aufträge alle fünf Sekunden. Die Admin-API
 besitzt den Datensatzslot und entscheidet über Annahme und Publikation. Der Job
 läuft unter `di-csv-executor`; Lieferanten sehen ihre eigenen Berichte in der
-Anlieferung. Bis zur Inbetriebnahme des CSV-Prozessors ist die Auftragserstellung
-deaktiviert.
+Anlieferung. Der feste GRETL-Prozessor prüft Eingang und Gesamtsnapshot.
+Er bestätigt echte ClickHouse- und S3-Rücklesebelege, bevor Admin die
+Fachversion annehmen kann.
 
 Build und JenkinsRule-Tests mit Java 21:
 

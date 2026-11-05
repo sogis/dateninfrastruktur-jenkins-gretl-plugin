@@ -13,8 +13,7 @@
       <section class="jenkins-card">
         <h3>${row.title()}</h3><p>${row.office()} · Ausgabe ${row.issueKey()}</p>
         <j:if test="${it.processingReady}">
-          <form method="post" action="${rootURL}/data-delivery/prepare">
-            <input type="hidden" name="${it.crumbField}" value="${it.crumb}"/>
+          <form class="no-json" method="post" action="${rootURL}/data-delivery/prepare">
             <input type="hidden" name="commandId" value="${it.freshCommand()}"/>
             <input type="hidden" name="datasetId" value="${row.datasetId()}"/>
             <input type="hidden" name="issueId" value="${row.issueId()}"/>

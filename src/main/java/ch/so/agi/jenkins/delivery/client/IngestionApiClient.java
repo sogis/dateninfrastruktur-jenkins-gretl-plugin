@@ -31,7 +31,7 @@ public final class IngestionApiClient {
     public void heartbeat(UUID id,Wire.Binding binding){service("executions/"+id+"/heartbeat","POST",UUID.randomUUID(),binding);}
     public void checkpoint(UUID id,Wire.Binding binding,String name,JsonNode evidence){service("executions/"+id+"/checkpoint","POST",UUID.randomUUID(),new Wire.Checkpoint(binding,name,evidence));}
     public Wire.Accepted complete(UUID id,Wire.Binding binding,JsonNode manifest,UUID command){return read(service("executions/"+id+"/complete","POST",command,new Wire.Complete(binding,manifest)),Wire.Accepted.class);}
-    public void fail(UUID id,Wire.Binding binding,String code){service("executions/"+id+"/fail","POST",UUID.randomUUID(),new Wire.Fail(binding,code));}
+    public void fail(UUID id,Wire.Binding binding,String code,Wire.ValidationIssue issue){service("executions/"+id+"/fail","POST",UUID.randomUUID(),new Wire.Fail(binding,code,issue));}
     private BoundedHttp.Response user(String path,String method,JenkinsOidcActorResolver.UserTokenContext user,UUID command,Object payload){return checked(request(path,method,user.accessToken(),ServiceTokenClient.pluginSecret(),command,payload),true);}
     private BoundedHttp.Response service(String path,String method,UUID command,Object payload){var tokens=ServiceTokenClient.get();var r=request(path,method,tokens.acquire(),null,command,payload);if(r.status()==401){tokens.invalidateOn401();r=request(path,method,tokens.acquire(),null,command,payload);}return checked(r,false);}
     private BoundedHttp.Response request(String path,String method,String token,String plugin,UUID command,Object payload){

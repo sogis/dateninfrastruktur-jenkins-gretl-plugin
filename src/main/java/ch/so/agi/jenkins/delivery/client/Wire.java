@@ -25,7 +25,7 @@ public final class Wire {
     public record Mutation(long expectedStatusVersion,String reason){}
     public record Status(UUID submissionId,UUID datasetId,UUID issueId,String state,long statusVersion,String originalName,Long inputSize,String mode,UUID publishedVersionId,String errorCode,String message,String datasetTitle,String createdAt){}
     public record Step(String checkpoint){}
-    public record Report(UUID submissionId,String state,String errorCode,String message,List<Step> steps){}
+    public record Report(UUID submissionId,String state,String errorCode,String message,List<Step> steps,List<ValidationIssue> issues){}
     public record Reserve(UUID submissionId){}
     public record Reserved(UUID dispatchId,UUID submissionId,String jobName,String state,String queueId,String runId){}
     public record SpoolDecision(UUID submissionId,boolean remove){}
@@ -36,7 +36,8 @@ public final class Wire {
     public record Binding(long fence,String leaseSecret){@Override public String toString(){return "Binding[private]";}}
     public record Checkpoint(Binding binding,String checkpoint,JsonNode evidence){}
     public record Complete(Binding binding,JsonNode manifest){}
-    public record Fail(Binding binding,String code){}
+    public record ValidationIssue(String code,long row,String attribute){}
+    public record Fail(Binding binding,String code,ValidationIssue issue){}
     public record Accepted(UUID submissionId,UUID versionId,long publicationRevision,String state){}
     public record Problem(int status,String code,String detail){}
     public static boolean hash(String value){return value!=null && value.matches("[0-9a-f]{64}");}

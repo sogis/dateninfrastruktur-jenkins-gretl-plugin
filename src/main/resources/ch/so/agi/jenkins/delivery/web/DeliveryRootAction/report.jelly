@@ -4,6 +4,9 @@
   <l:layout title="Lieferbericht"><l:main-panel>
     <h1>Lieferbericht</h1><p>${it.stateLabel(row.state())}</p><p>${row.message()}</p><p>${row.errorCode()}</p>
     <ul><j:forEach var="step" items="${row.steps()}"><li>${step.checkpoint()}</li></j:forEach></ul>
+    <j:if test="${!empty(row.issues())}"><h2>Validierung</h2><ul>
+      <j:forEach var="issue" items="${row.issues()}"><li>${issue.code()} <j:if test="${issue.row() &gt; 0}">· Zeile ${issue.row()}</j:if> <j:if test="${!empty(issue.attribute())}">· Attribut ${issue.attribute()}</j:if></li></j:forEach>
+    </ul></j:if>
     <p><a href="${rootURL}/data-delivery/status?id=${row.submissionId()}">Zum Lieferstatus</a></p>
   </l:main-panel></l:layout>
 </j:jelly>

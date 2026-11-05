@@ -42,7 +42,8 @@ public final class DeliverySteps {
     private static JsonNode checkedPlan(FilePath dir,DeliveryRunBindingAction b)throws Exception{
         var plan=read(dir.child("plan.json"),131072);if(!b.planDigest().equals(Wire.digest(plan)))throw new DeliveryProblem(409,"INPUT_MISMATCH");return plan;
     }
-    private static void safeFail(DeliveryRunBindingAction b,String code){if(b!=null && !b.accepted())try{new IngestionApiClient().fail(b.executionId(),b.binding(),code);}catch(DeliveryProblem ignored){/* A committed/stale state cannot be downgraded. */}}
+    private static void safeFail(DeliveryRunBindingAction b,String code){safeFail(b,code,null);}
+    private static void safeFail(DeliveryRunBindingAction b,String code,Wire.ValidationIssue issue){if(b!=null && !b.accepted())try{new IngestionApiClient().fail(b.executionId(),b.binding(),code,issue);}catch(DeliveryProblem ignored){/* A committed/stale state cannot be downgraded. */}}
     private static String failureCode(Exception e){if(e instanceof DeliveryProblem p && Set.of("INPUT_MISMATCH","ARTIFACT_CONFLICT","VALIDATION_FAILED").contains(p.code()))return p.code();return "DEPENDENCY_UNAVAILABLE";}
     private static AbortException safe(Exception e){return new AbortException(e instanceof DeliveryProblem p?p.getMessage():"Technischer CSV-Lauf beendet; Status im Lieferportal prüfen.");}
     abstract static class FixedDescriptor extends StepDescriptor {
@@ -74,7 +75,7 @@ public final class DeliverySteps {
                 write(dir.child("plan.json"),Wire.canonical(plan).getBytes(StandardCharsets.UTF_8));
                 api.checkpoint(b.executionId(),b.binding(),"INPUT_VERIFIED",Wire.JSON.valueToTree(Map.of("schemaVersion",1,"size",size,"sha256",sha)));return null;
             }catch(InterruptedException error){safeFail(b,"DEPENDENCY_UNAVAILABLE");if(created && dir!=null)dir.deleteRecursive();throw error;}
-            catch(Exception error){safeFail(b,failureCode(error));if(created && dir!=null)dir.deleteRecursive();throw safe(error);}
+            catch(Exception error){safeFail(b,failureCode(error),error instanceof DeliveryProblem p?p.issue():null);if(created && dir!=null)dir.deleteRecursive();throw safe(error);}
         }
     }
     public static final class Process extends Step {
@@ -96,7 +97,7 @@ public final class DeliverySteps {
                 var result=CsvDeliveryProcessor.require().process(dir,checkedPlan(dir,b),callbacks,getContext().get(TaskListener.class));
                 callbacks.heartbeat();if(result==null || !result.isObject())throw DeliveryProblem.unavailable();byte[] bytes=Wire.JSON.writeValueAsBytes(result);if(bytes.length>49152)throw DeliveryProblem.invalid();write(dir.child("result.json"),bytes);return null;
             }catch(InterruptedException error){safeFail(b,"DEPENDENCY_UNAVAILABLE");throw error;}
-            catch(Exception error){safeFail(b,failureCode(error));throw safe(error);}finally{heartbeat.cancel(false);}
+            catch(Exception error){safeFail(b,failureCode(error),error instanceof DeliveryProblem p?p.issue():null);throw safe(error);}finally{heartbeat.cancel(false);}
         }
     }
     public static final class Complete extends Step {
@@ -114,7 +115,7 @@ public final class DeliverySteps {
                 try{result=api.complete(b.executionId(),b.binding(),manifest,command("complete",b.executionId()));}catch(DeliveryProblem error){if(error.status()!=503)throw error;result=api.complete(b.executionId(),b.binding(),manifest,command("complete",b.executionId()));}
                 if(!b.submissionId().equals(result.submissionId()) || result.versionId()==null || !Set.of("COMMITTED","PUBLISHED").contains(result.state()))throw DeliveryProblem.unavailable();
                 b.markAccepted();run.save();getContext().get(TaskListener.class).getLogger().println("PUBLISHED".equals(result.state())?"Fachlich veröffentlicht.":"Fachlich angenommen; SQL-Aktualisierung ausstehend.");return null;
-            }catch(InterruptedException error){throw error;}catch(Exception error){safeFail(b,failureCode(error));throw safe(error);}
+            }catch(InterruptedException error){throw error;}catch(Exception error){safeFail(b,failureCode(error),error instanceof DeliveryProblem p?p.issue():null);throw safe(error);}
         }
     }
     public static final class Clean extends Step {

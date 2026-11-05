@@ -4,8 +4,8 @@
     <h1>Lieferung nicht möglich</h1><p>${request.getAttribute('problem')}</p>
     <j:if test="${request.getAttribute('loginRequired')}"><p><a href="${rootURL}/securityRealm/commenceLogin?from=${rootURL}/data-delivery/">Erneut über Keycloak anmelden</a></p></j:if>
     <j:if test="${request.getAttribute('identityUnknown')}">
-      <form method="post" action="${rootURL}/data-delivery/identify">
-        <input type="hidden" name="${it.crumbField}" value="${it.crumb}"/><input type="hidden" name="commandId" value="${it.freshCommand()}"/>
+      <form class="no-json" method="post" action="${rootURL}/data-delivery/identify">
+        <input type="hidden" name="commandId" value="${it.freshCommand()}"/>
         <button type="submit" class="jenkins-button">Identität bestätigen</button>
       </form>
     </j:if>

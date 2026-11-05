@@ -42,6 +42,18 @@ class IncomingUploadStoreTest {
         assertTrue(store.maintenanceBatch("").isEmpty());
         assertThrows(DeliveryProblem.class,()->store.receive(UUID.randomUUID(),64,input("\uFEFF<?xml ...","data.csv")));
     }
+    @Test void rejectsPaddedArchivesAndXmlWithoutRejectingCsvPrefixes()throws Exception{
+        var store=new IncomingUploadStore(home);
+        for(String padding:List.of("", "  \r\n\t", "\uFEFF   "," ".repeat(65534))){
+            for(String signature:List.of("PK\u0003\u0004", "<?xml version='1.0'?>")){
+                var error=assertThrows(DeliveryProblem.class,()->store.receive(UUID.randomUUID(),70000,input(padding+signature,"data.csv")));
+                assertEquals("INVALID_CSV_CONTENT",error.code());
+            }
+        }
+        byte[] gzip={32,9,31,(byte)139,1};
+        assertEquals("INVALID_CSV_CONTENT",assertThrows(DeliveryProblem.class,()->store.receive(UUID.randomUUID(),64,(p,n)->IncomingUploadStore.receiveBounded(new ByteArrayInputStream(gzip),p,n,"data.csv"))).code());
+        var valid=" \tPK;Total\n1;2\n";assertEquals(Wire.sha(bytes(valid)),store.receive(UUID.randomUUID(),64,input(valid,"data.csv")).sha256());
+    }
     @Test void twoStreamsCannotOwnTheSameSubmission()throws Exception{
         var store=new IncomingUploadStore(home);UUID id=UUID.randomUUID();var entered=new CountDownLatch(1);var release=new CountDownLatch(1);
         try(var pool=Executors.newVirtualThreadPerTaskExecutor()){

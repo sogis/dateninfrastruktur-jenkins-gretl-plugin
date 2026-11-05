@@ -32,6 +32,6 @@ import static org.junit.jupiter.api.Assertions.*;
         var duplicate=DeliveryQueueDecision.schedule(queue,job,new DeliveryQueueAction(marker.submissionId(),marker.dispatchId()));assertEquals(first.getItem().getId(),duplicate.getItem().getId());
         var separate=DeliveryQueueDecision.schedule(queue,job,new DeliveryQueueAction(UUID.randomUUID(),UUID.randomUUID()));assertTrue(separate.isCreated());assertNotEquals(first.getItem().getId(),separate.getItem().getId());
         });
-        assertFalse(ch.so.agi.jenkins.delivery.steps.CsvDeliveryProcessor.ready(),"No probe processor in normal plugin");
+        assertInstanceOf(ch.so.agi.jenkins.delivery.runner.GretlCsvProcessor.class,ch.so.agi.jenkins.delivery.steps.CsvDeliveryProcessor.require());
     }
 }
