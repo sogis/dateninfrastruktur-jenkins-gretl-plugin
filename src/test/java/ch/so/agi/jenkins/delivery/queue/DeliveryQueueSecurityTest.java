@@ -31,6 +31,10 @@ import static org.junit.jupiter.api.Assertions.*;
         var first=DeliveryQueueDecision.schedule(queue,job,marker);assertTrue(first.isCreated());assertEquals(CsvJobProvisioner.EXECUTOR,first.getItem().authenticate2().getName());
         var duplicate=DeliveryQueueDecision.schedule(queue,job,new DeliveryQueueAction(marker.submissionId(),marker.dispatchId()));assertEquals(first.getItem().getId(),duplicate.getItem().getId());
         var separate=DeliveryQueueDecision.schedule(queue,job,new DeliveryQueueAction(UUID.randomUUID(),UUID.randomUUID()));assertTrue(separate.isCreated());assertNotEquals(first.getItem().getId(),separate.getItem().getId());
+        // Finish this queue contract while it is still a queue contract. A Pipeline
+        // flyweight may otherwise begin writing run files as JenkinsRule removes Home.
+        assertTrue(queue.cancel(first.getItem()));
+        assertTrue(queue.cancel(separate.getItem()));
         });
         assertInstanceOf(ch.so.agi.jenkins.delivery.runner.GretlCsvProcessor.class,ch.so.agi.jenkins.delivery.steps.CsvDeliveryProcessor.require());
     }
