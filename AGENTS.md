@@ -1,31 +1,15 @@
-# AGENTS.md – dateninfrastruktur-jenkins-gretl-plugin
+# dateninfrastruktur-jenkins-gretl-plugin
 
-## Vor Beginn lesen
+Im gemeinsamen Dateninfrastruktur-Workspace vor repoübergreifender Arbeit
+`../AGENTS.md` ausdrücklich lesen und die Repo-Grenzen verifizieren. Bei einem
+Einzelclone gelten die lokalen Regeln und Bedienhinweise im README. Für
+repoübergreifende Aufträge zuerst den verifizierten Workspace bereitstellen.
 
-Lies ausdrücklich `../AGENTS.md` und `../dateninfrastruktur-dev-stack/docs/implementation/grundinstallation/AUFTRAG_GRUNDINSTALLATION.md` sowie den zur aktuellen Rolle gehörenden Startprompt im selben Dokumentationsordner. Fehlt `../AGENTS.md`, lies ersatzweise `../dateninfrastruktur-dev-stack/docs/implementation/grundinstallation/templates/AGENTS.workspace.md`. Verlasse dich nicht auf automatische Vererbung über Git-Grenzen. Weitere betroffene Schwesterrepos haben eigene AGENTS-Dateien.
+Dieses Repo besitzt die Jenkins-Oberfläche und Ausführung für den einen
+generischen CSV-Anlieferungsjob. Fachrechte und Dataset-/Submission-Bindung
+prüft Admin. Formularfelder, Jobparameter und technische Jenkinsrechte
+sind keine fachliche Autorisierung.
 
-Diese Regeln gelten für Implementierung **und** Review. Ein Reviewauftrag erlaubt keine Änderungen an Produktdateien, Tests, Anforderungen oder AGENTS-Dateien; Befunde melden, nicht selbst reparieren. Builds/Tests nur mit eigenen Laufzeitdaten. Quellrepos, fremde Änderungen und laufende fremde Instanzen erhalten; keine Secrets in Git oder Berichten.
-
-## Verantwortung
-
-Eigenständige Kopie des einen projektspezifischen Jenkins-Plugins: Themenrepo-Scanner, Startformular, Seedjob und Jobgenerierung. Keine neuen Datenzugangs- oder BI-Funktionen einbauen.
-
-## Besondere Regeln
-
-- Repositoryname und Herkunft ändern; technische Plugin-ID `jenkins-gretl-dateninfrastruktur-plugin` zunächst beibehalten.
-- Ebenso `gretlDatenportalJobs`, `prepareDatenportalWorkspace`, Seedjobname und Java-/Jelly-Verträge gemäss Auftrag erhalten. Keine globale Namespace-Ersetzung.
-- Bestehende Tests und Lizenzhinweise erhalten. Datenportal-Quellrepo unverändert lassen.
-- Jenkins-Teamrechte für Jobausführung sind keine ClickHouse-Datenrechte. Keine entsprechende Rollenautomatik in dieses Plugin verlagern.
-- In einer Jenkins-Instanz wird nur das neue lokale Artefakt installiert; alte und neue Kopie mit derselben technischen ID nicht parallel installieren.
-
-## Nachweise
-
-Den vorhandenen Maven-Test-/Paketweg mit der vorgesehenen Java-Version nutzen, beispielsweise `mvn -ntp package` im Repo-Root, sofern der übernommene Build dies bestätigt. HPI-Build und Hash dokumentieren; Installation, Formular, Assetpfade und Seedjob im neuen Dev-Stack prüfen. Kein Pluginrelease und kein Remote-Push verlangt.
-
-## Geltung der historischen Aufträge
-
-Die vorstehenden MA-0–F-/Grundinstallationsgrenzen gelten nur für ihre damaligen
-Aufträge. Für den ausdrücklich aktivierten MA-G-Auftrag gilt `../AGENTS.md` und
-vollständig `../dateninfrastruktur-dev-stack/docs/implementation/storage-and-delivery/`.
-Aktive Altverträge werden gemäss MA-G ersetzt; Sicherheits- und Datenerhaltungsregeln
-bleiben bindend. Historische Dokumente und Nutzerarbeit nicht umschreiben.
+Maven-Build und Tests gemäss README.md ausführen. Bei Integrationsprüfungen
+das lokale HPI im isolierten Stack installieren und seine Artefaktbindung
+nachweisen. Die technische Plugin-ID bleibt stabil.
