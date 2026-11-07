@@ -2,6 +2,7 @@ name: Maven build and publish
 
 on:
   pull_request:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -16,7 +17,7 @@ concurrency:
 jobs:
   verify:
     name: Build and test
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
