@@ -25,8 +25,8 @@ public final class JenkinsOidcActorResolver {
     static void requireSubjectMatch(String token,String id,String issuer){
         try{
             if(token==null || token.length()>16384)throw DeliveryProblem.login();var sections=token.split("\\.",-1);if(sections.length!=3 || sections[2].isEmpty())throw DeliveryProblem.login();
-            var claims=Wire.JSON.readTree(Base64.getUrlDecoder().decode(sections[1]));
-            var audience=claims.path("aud");boolean wanted=audience.isString() && "di-ingestion-user".equals(audience.asString());for(var entry:audience)if(entry.isString() && "di-ingestion-user".equals(entry.asString()))wanted=true;
+            var claims=DeliveryApi.JSON.readTree(Base64.getUrlDecoder().decode(sections[1]));
+            var audience=claims.path("aud");boolean wanted=audience.isString() && "management-api".equals(audience.asString());for(var entry:audience)if(entry.isString() && "management-api".equals(entry.asString()))wanted=true;
             if(!wanted || !id.equals(claims.path("sub").asString("")) || !issuer.equals(claims.path("iss").asString("")) || !"Bearer".equals(claims.path("typ").asString("")) || !"jenkins-delivery".equals(claims.path("azp").asString("")) || claims.path("exp").asLong(0)<=Instant.now().getEpochSecond())throw DeliveryProblem.login();
         }catch(RuntimeException e){throw DeliveryProblem.login();}
     }

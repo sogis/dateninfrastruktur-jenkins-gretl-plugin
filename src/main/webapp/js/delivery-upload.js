@@ -1,10 +1,9 @@
 'use strict';
-const deliveryUpload = document.getElementById('di-upload');
-if (deliveryUpload) {
+for (const deliveryUpload of document.querySelectorAll('.di-upload')) {
     deliveryUpload.addEventListener('submit', (event) => {
         event.preventDefault();
         const button = deliveryUpload.querySelector('button');
-        const message = document.getElementById('di-upload-message');
+        const message = deliveryUpload.querySelector('[role=status]');
         const input = deliveryUpload.elements.namedItem('file');
         if (!input || input.files.length !== 1) return;
         const endpoint = new URL(deliveryUpload.dataset.endpoint, window.location.origin);
@@ -18,7 +17,9 @@ if (deliveryUpload) {
         request.open('POST', endpoint.href);
         request.responseType = 'json';
         request.setRequestHeader(deliveryUpload.dataset.crumbField, deliveryUpload.dataset.crumb);
-        request.setRequestHeader('Idempotency-Key', deliveryUpload.dataset.key);
+        request.setRequestHeader('X-Delivery-Dataset', deliveryUpload.dataset.dataset);
+        request.setRequestHeader('X-Delivery-Issue', deliveryUpload.dataset.issue);
+        request.setRequestHeader('X-Delivery-Mode', deliveryUpload.elements.namedItem('mode').value);
         request.setRequestHeader('Accept', 'application/json');
         request.addEventListener('load', () => {
             const result = request.response;
