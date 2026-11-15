@@ -15,6 +15,7 @@ import hudson.Launcher;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -72,7 +73,6 @@ public final class DeliverySteps extends Step {
             Path dir = store.existing(id);
             var config = DeliveryPluginConfiguration.get();
             try {
-                run.setDisplayName("#" + run.getNumber() + " " + id);
                 if (!ready() || !Files.isRegularFile(dir.resolve("input.csv"), LinkOption.NOFOLLOW_LINKS)) {
                     throw new AbortException("GRETL oder die private Upload-Datei fehlt.");
                 }
@@ -85,9 +85,11 @@ public final class DeliverySteps extends Step {
                 try {
                     var process = launcher.launch()
                         .cmds(CLI.toString(), "run", JOB.toString(),
-                            "--params-file", "params.json", "--config", "runtime.json")
-                        .envs(environment).pwd(dir.toFile()).stdout(listener).start();
-                    if (process.joinWithTimeout(31, TimeUnit.MINUTES, listener) != 0) {
+                            "--params-file", "params.json", "--config", "runtime.json", "--report", "run.json")
+                        .envs(environment).pwd(dir.toFile()).stdout(OutputStream.nullOutputStream()).start();
+                    int exit = process.joinWithTimeout(31, TimeUnit.MINUTES, listener);
+                    logReport(dir.resolve("run.json"), listener);
+                    if (exit != 0) {
                         throw new AbortException("GRETL-Lauf fehlgeschlagen. Details stehen im Joblog.");
                     }
                 } finally {
@@ -99,11 +101,35 @@ public final class DeliverySteps extends Step {
             } catch (Exception error) {
                 reportFailure(id, listener);
                 if (error instanceof AbortException abort) throw abort;
+                listener.getLogger().println("GRETL wurde unterbrochen: " + error.getClass().getSimpleName());
                 throw new AbortException("GRETL-Lauf konnte nicht ausgeführt werden.");
             } finally {
                 store.remove(id);
             }
             return null;
+        }
+    }
+
+    private static void logReport(Path report, TaskListener listener) {
+        try {
+            if (!Files.isRegularFile(report) || Files.size(report) > 1024 * 1024) {
+                listener.getLogger().println("Kein GRETL-Runbericht verfügbar.");
+                return;
+            }
+            var result = DeliveryApi.JSON.readTree(Files.readAllBytes(report));
+            for (var task : result.path("execution").path("tasks")) {
+                String id = task.path("taskId").asString("");
+                String status = task.path("status").asString("");
+                if (id.matches("[A-Za-z][A-Za-z0-9_]{0,63}") && status.matches("[A-Z_]{1,24}")) {
+                    listener.getLogger().println("GRETL " + id + " " + status);
+                }
+            }
+            for (var error : result.path("errors")) {
+                String code = error.path("code").asString("");
+                if (code.matches("[A-Z0-9_]{1,80}")) listener.getLogger().println("GRETL " + code);
+            }
+        } catch (IOException | RuntimeException error) {
+            listener.getLogger().println("GRETL-Runbericht konnte nicht gelesen werden.");
         }
     }
 
@@ -142,6 +168,8 @@ public final class DeliverySteps extends Step {
     private static void reportFailure(UUID id, TaskListener listener) {
         try {
             new DeliveryApi().fail(ServiceTokenClient.acquire(), id);
+        } catch (ch.so.agi.jenkins.delivery.client.DeliveryProblem error) {
+            listener.getLogger().println("Admin hat die Fehlermeldung nicht bestätigt (HTTP " + error.status() + ").");
         } catch (RuntimeException error) {
             listener.getLogger().println("Admin hat keine technische Fehlermeldung bestätigt.");
         }

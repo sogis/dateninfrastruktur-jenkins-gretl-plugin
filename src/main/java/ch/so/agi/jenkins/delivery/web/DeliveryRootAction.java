@@ -23,8 +23,14 @@ public final class DeliveryRootAction implements RootAction {
     @Override public String getDisplayName() { return "CSV-Anlieferung"; }
     @Override public String getIconFileName() { return "symbol-upload"; }
 
-    public String getCrumbField() { return Jenkins.get().getCrumbIssuer().getCrumbRequestField(); }
-    public String getCrumb() { return Jenkins.get().getCrumbIssuer().getCrumb(); }
+    public String getCrumbField() {
+        var issuer = Jenkins.get().getCrumbIssuer();
+        return issuer == null ? "" : issuer.getCrumbRequestField();
+    }
+    public String getCrumb() {
+        var issuer = Jenkins.get().getCrumbIssuer();
+        return issuer == null ? "" : issuer.getCrumb();
+    }
     public boolean isProcessingReady() { return DeliverySteps.ready() && CsvJobProvisioner.current() != null; }
 
     private JenkinsOidcActorResolver.UserTokenContext actor(StaplerRequest2 request) {
@@ -107,10 +113,31 @@ public final class DeliveryRootAction implements RootAction {
         try {
             var user = actor(request);
             var id = uuid(request.getParameter("id"));
-            request.setAttribute("delivery", new DeliveryApi().state(user, id));
+            var state = new DeliveryApi().state(user, id);
+            request.setAttribute("delivery", state);
+            request.setAttribute("deliveryLabel", stateLabel(state.status()));
+            showRun(request, id);
             view(request, response, "status");
         } catch (DeliveryProblem problem) {
             failure(request, response, problem);
+        }
+    }
+
+    private void showRun(StaplerRequest2 request, UUID id) {
+        var job = CsvJobProvisioner.current();
+        if (job == null) return;
+        // Admin has already checked access to this exact submission.
+        try (var elevated = ACL.as2(ACL.SYSTEM2)) {
+            for (var run : job.getBuilds()) {
+                var marker = run.getAction(DeliveryQueueAction.class);
+                if (marker == null || !id.equals(marker.submissionId())) continue;
+                request.setAttribute("runNumber", run.getNumber());
+                var log = run.getLog(30).stream().map(line -> line.substring(0, Math.min(1024, line.length())));
+                request.setAttribute("runLog", String.join("\n", log.toList()));
+                return;
+            }
+        } catch (IOException ignored) {
+            // The Admin status remains usable when Jenkins logs have been removed.
         }
     }
 

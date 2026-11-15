@@ -3,10 +3,14 @@
   <j:set var="row" value="${request.getAttribute('delivery')}"/>
   <l:layout title="Lieferstatus"><l:main-panel>
     <h1>Lieferstatus</h1>
-    <p id="di-delivery-state">${it.stateLabel(row.status())}</p>
+    <p id="di-delivery-state">${request.getAttribute('deliveryLabel')}</p>
     <dl><dt>Lieferkennung</dt><dd>${row.id()}</dd><dt>Dateigrösse</dt><dd>${row.inputSize()}</dd></dl>
     <j:if test="${row.acceptedVersionId() != null}">
       <p>Angenommene Version ${row.acceptedVersionId()}</p>
+    </j:if>
+    <j:if test="${request.getAttribute('runNumber') != null}">
+      <h2>Jenkins-Lauf ${request.getAttribute('runNumber')}</h2>
+      <pre>${request.getAttribute('runLog')}</pre>
     </j:if>
     <p><a href="?id=${row.id()}">Status aktualisieren</a></p>
     <p><a href="${rootURL}/anlieferung/">Zur Übersicht</a></p>
