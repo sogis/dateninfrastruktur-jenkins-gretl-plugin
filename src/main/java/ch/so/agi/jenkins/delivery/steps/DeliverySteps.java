@@ -70,9 +70,10 @@ public final class DeliverySteps extends Step {
             UUID id = run.getAction(DeliveryQueueAction.class).submissionId();
             var listener = getContext().get(TaskListener.class);
             var store = new IncomingUploadStore(Jenkins.get().getRootDir().toPath());
-            Path dir = store.existing(id);
+            Path dir = null;
             var config = DeliveryPluginConfiguration.get();
             try {
+                dir = store.existing(id);
                 if (!ready() || !Files.isRegularFile(dir.resolve("input.csv"), LinkOption.NOFOLLOW_LINKS)) {
                     throw new AbortException("GRETL oder die private Upload-Datei fehlt.");
                 }
@@ -85,7 +86,8 @@ public final class DeliverySteps extends Step {
                 try {
                     var process = launcher.launch()
                         .cmds(CLI.toString(), "run", JOB.toString(),
-                            "--params-file", "params.json", "--config", "runtime.json", "--report", "run.json")
+                            "--params-file", "params.json", "--config", "runtime.json",
+                            "--work-dir", "work", "--report", "run.json")
                         .envs(environment).pwd(dir.toFile()).stdout(OutputStream.nullOutputStream()).start();
                     int exit = process.joinWithTimeout(31, TimeUnit.MINUTES, listener);
                     logReport(dir.resolve("run.json"), listener);
@@ -104,7 +106,7 @@ public final class DeliverySteps extends Step {
                 listener.getLogger().println("GRETL wurde unterbrochen: " + error.getClass().getSimpleName());
                 throw new AbortException("GRETL-Lauf konnte nicht ausgeführt werden.");
             } finally {
-                store.remove(id);
+                if (dir != null) store.remove(id);
             }
             return null;
         }
@@ -152,7 +154,7 @@ public final class DeliverySteps extends Step {
             "clickhouseUrl", CLICKHOUSE, "clickhouseUser", CLICKHOUSE_USER)));
         writePrivate(dir.resolve("runtime.json"), DeliveryApi.JSON.writeValueAsString(Map.of(
             "schemaVersion", 1,
-            "runtime", Map.of("workRoot", "work", "reportRoot", "reports", "timeout", "PT30M"),
+            "runtime", Map.of("reportRoot", "reports", "timeout", "PT30M"),
             "secrets", secrets,
             "taskConfig", Map.of("clickhouse", Map.of(
                 "jdbcUrl", "jdbc:clickhouse://" + CLICKHOUSE.substring("http://".length())

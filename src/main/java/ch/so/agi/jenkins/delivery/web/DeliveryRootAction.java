@@ -92,6 +92,9 @@ public final class DeliveryRootAction implements RootAction {
                     upload.originalName(), upload.size(), upload.sha256()));
                 try (var elevated = ACL.as2(ACL.SYSTEM2)) {
                     queued = DeliveryQueueDecision.schedule(Jenkins.get().getQueue(), job, new DeliveryQueueAction(id)).isAccepted();
+                } catch (RuntimeException error) {
+                    api.cancel(user, id);
+                    throw DeliveryProblem.unavailable();
                 }
                 if (!queued) {
                     api.cancel(user, id);
