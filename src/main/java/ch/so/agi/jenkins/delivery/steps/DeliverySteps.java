@@ -173,32 +173,42 @@ public final class DeliverySteps extends Step {
             boolean limited = bytes.length > MAX_VALIDATION_BYTES;
             for (String line : new String(bytes, 0, Math.min(bytes.length, MAX_VALIDATION_BYTES),
                                           StandardCharsets.UTF_8).split("\n")) {
-                var error = CSV_ERROR.matcher(line.stripTrailing());
-                if (!error.matches()) continue;
+                String diagnostic = validationDiagnostic(line.stripTrailing());
+                if (diagnostic == null) continue;
                 if (count == MAX_DIAGNOSTICS) {
                     limited = true;
                     break;
                 }
-                String message = error.group(2);
-                var unique = UNIQUE_ERROR.matcher(message);
-                var attribute = ATTRIBUTE_ERROR.matcher(message);
-                var value = VALUE_ERROR.matcher(message);
-                String detail = "Modellverletzung.";
-                if (unique.matches()) {
-                    detail = unique.group(1);
-                } else if (attribute.matches()) {
-                    detail = attribute.group(1);
-                } else if (value.matches()) {
-                    detail = value.group(1) != null ? "Value " + value.group(1) : value.group(2) + " " + value.group(3);
-                }
-                listener.getLogger().println("CSV-Validierung, Zeile " + error.group(1) + ". " + detail);
+                listener.getLogger().println(diagnostic);
                 count++;
             }
             if (limited) listener.getLogger().println("Die CSV-Validierungsdiagnosen wurden begrenzt.");
-            if (count == 0) listener.getLogger().println("Keine zeilenbezogene CSV-Validierungsdiagnose verfügbar.");
+            if (count == 0) listener.getLogger().println("Keine auswertbare CSV-Validierungsdiagnose verfügbar.");
         } catch (IOException error) {
             listener.getLogger().println("CSV-Validierungsdiagnosen konnten nicht gelesen werden.");
         }
+    }
+
+    private static String validationDiagnostic(String line) {
+        if (line.startsWith("Error: attributes of headerrecord: [") && line.contains("] not found in iliModel: ")) {
+            return "CSV-Validierung, Kopfzeile. Die Spaltennamen passen nicht zum gebundenen Modell.";
+        }
+        var error = CSV_ERROR.matcher(line);
+        if (!error.matches()) return null;
+
+        String message = error.group(2);
+        var unique = UNIQUE_ERROR.matcher(message);
+        var attribute = ATTRIBUTE_ERROR.matcher(message);
+        var value = VALUE_ERROR.matcher(message);
+        String detail = "Modellverletzung.";
+        if (unique.matches()) {
+            detail = unique.group(1);
+        } else if (attribute.matches()) {
+            detail = attribute.group(1);
+        } else if (value.matches()) {
+            detail = value.group(1) != null ? "Value " + value.group(1) : value.group(2) + " " + value.group(3);
+        }
+        return "CSV-Validierung, Zeile " + error.group(1) + ". " + detail;
     }
 
     private static void prepare(Path dir, UUID id, DeliveryPluginConfiguration config) throws IOException {

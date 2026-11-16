@@ -38,6 +38,19 @@ class DeliveryStepsTest {
         }
     }
 
+    @Test void explainsHeaderMismatchWithoutEchoingHeader() throws Exception {
+        var output = new ByteArrayOutputStream();
+        var log = home.resolve("validation.log");
+        Files.writeString(log, "Error: attributes of headerrecord: [private-zone, private-code]"
+            + " not found in iliModel: Probe\n");
+        try (var listener = new StreamTaskListener(output, StandardCharsets.UTF_8)) {
+            DeliverySteps.logValidation(log, listener);
+        }
+        var message = output.toString(StandardCharsets.UTF_8);
+        assertTrue(message.contains("Die Spaltennamen passen nicht zum gebundenen Modell."));
+        assertFalse(message.contains("private-zone") || message.contains("private-code"));
+    }
+
     @Test void missingLogOnlyAddsWarning() throws Exception {
         var output = new ByteArrayOutputStream();
         try (var listener = new StreamTaskListener(output, StandardCharsets.UTF_8)) {
