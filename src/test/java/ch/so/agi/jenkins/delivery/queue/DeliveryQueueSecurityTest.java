@@ -1,9 +1,11 @@
 package ch.so.agi.jenkins.delivery.queue;
 
+import ch.so.agi.jenkins.delivery.upload.IncomingUploadStore;
 import hudson.model.*;
 import hudson.security.*;
 import java.util.*;
 import java.io.IOException;
+import java.nio.file.Files;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.matrixauth.*;
 import org.jenkinsci.plugins.workflow.job.WorkflowJob;
@@ -27,6 +29,12 @@ import static org.junit.jupiter.api.Assertions.*;
         var queue=j.jenkins.getQueue();var marker=new DeliveryQueueAction(UUID.randomUUID());
         assertTrue(queue.schedule2(job,0,List.of()).isRefused());assertTrue(queue.schedule2(job,0,List.of(marker)).isRefused());
         assertTrue(queue.schedule2(job,0,List.of(new ParametersAction(new StringParameterValue("SUBMISSION_ID",marker.submissionId().toString())))).isRefused());
+        var store = new IncomingUploadStore(j.jenkins.getRootDir().toPath());
+        store.receive(marker.submissionId(), 100, (path, limit) -> {
+            Files.writeString(path, "code\n1\n");
+            return new IncomingUploadStore.Evidence(Files.size(path), "", "input.csv");
+        });
+        var upload = store.existing(marker.submissionId());
         hudson.model.Queue.withLock((Runnable)()->{
         var first=DeliveryQueueDecision.schedule(queue,job,marker);assertTrue(first.isCreated());assertEquals(CsvJobProvisioner.EXECUTOR,first.getItem().authenticate2().getName());
         var duplicate=DeliveryQueueDecision.schedule(queue,job,new DeliveryQueueAction(marker.submissionId()));assertEquals(first.getItem().getId(),duplicate.getItem().getId());
@@ -36,5 +44,8 @@ import static org.junit.jupiter.api.Assertions.*;
         assertTrue(queue.cancel(first.getItem()));
         assertTrue(queue.cancel(separate.getItem()));
         });
+        for (int attempt = 0; attempt < 100 && Files.exists(upload); attempt++) Thread.sleep(50);
+        assertFalse(Files.exists(upload), "Cancelling the queue item must remove the private upload");
+        assertTrue(job.getBuilds().isEmpty(), "A cancelled queue item must not start GRETL");
     }
 }

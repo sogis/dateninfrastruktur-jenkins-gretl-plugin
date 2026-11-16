@@ -135,7 +135,7 @@ public final class DeliveryRootAction implements RootAction {
                 var marker = run.getAction(DeliveryQueueAction.class);
                 if (marker == null || !id.equals(marker.submissionId())) continue;
                 request.setAttribute("runNumber", run.getNumber());
-                var log = run.getLog(30).stream().map(line -> line.substring(0, Math.min(1024, line.length())));
+                var log = run.getLog(100).stream().map(line -> line.substring(0, Math.min(1024, line.length())));
                 request.setAttribute("runLog", String.join("\n", log.toList()));
                 return;
             }
