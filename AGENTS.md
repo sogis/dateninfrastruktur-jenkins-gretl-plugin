@@ -11,5 +11,7 @@ prüft Admin. Formularfelder, Jobparameter und technische Jenkinsrechte
 sind keine fachliche Autorisierung.
 
 Maven-Build und Tests gemäss README.md ausführen. Bei Integrationsprüfungen
-das lokale HPI im isolierten Stack installieren und seine Artefaktbindung
-nachweisen. Die technische Plugin-ID bleibt stabil.
+das lokale HPI im isolierten Stack installieren und das gebaute Image prüfen. Die technische Plugin-ID bleibt stabil.
+
+Vor grösseren Änderungen `.agents/skills/simplify-change/SKILL.md` anwenden.
+Vor PR-Abschluss unabhängig mit `.agents/skills/review-change/SKILL.md` prüfen.

@@ -2,93 +2,176 @@ package ch.so.agi.jenkins.delivery.web;
 
 import ch.so.agi.jenkins.delivery.client.*;
 import ch.so.agi.jenkins.delivery.config.DeliveryPluginConfiguration;
-import ch.so.agi.jenkins.delivery.identity.*;
+import ch.so.agi.jenkins.delivery.identity.JenkinsOidcActorResolver;
 import ch.so.agi.jenkins.delivery.queue.*;
-import ch.so.agi.jenkins.delivery.steps.CsvDeliveryProcessor;
+import ch.so.agi.jenkins.delivery.steps.DeliverySteps;
 import ch.so.agi.jenkins.delivery.upload.*;
 import hudson.Extension;
 import hudson.model.RootAction;
+import hudson.security.ACL;
 import java.io.IOException;
 import java.util.*;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
-@Extension public final class DeliveryRootAction implements RootAction {
-    @Override public String getUrlName(){return "data-delivery";}
-    @Override public String getDisplayName(){return "CSV-Anlieferung";}
-    @Override public String getIconFileName(){return "symbol-upload";}
-    public String getCrumbField(){var issuer=Jenkins.get().getCrumbIssuer();return issuer==null?"":issuer.getCrumbRequestField();}
-    public String getCrumb(){var issuer=Jenkins.get().getCrumbIssuer();return issuer==null?"":issuer.getCrumb();}
-    public String freshCommand(){return UUID.randomUUID().toString();}
-    public boolean isProcessingReady(){return CsvDeliveryProcessor.ready()&&CsvJobProvisioner.current()!=null;}
-    private static final JenkinsOidcActorResolver IDENTITIES=new JenkinsOidcActorResolver();
-    private JenkinsOidcActorResolver.UserTokenContext actor(StaplerRequest2 req){Jenkins.get().checkPermission(Jenkins.READ);return IDENTITIES.current(req);}
-    private void requireReady(){if(!isProcessingReady())throw new DeliveryProblem(503,"PROCESSOR_NOT_READY");}
-    private String base(StaplerRequest2 req){return req.getContextPath()+"/data-delivery/";}
-    private void view(StaplerRequest2 req,StaplerResponse2 res,String name)throws Exception{res.setHeader("Cache-Control","no-store");req.getView(this,name+".jelly").forward(req,res);}
-    private void fail(StaplerRequest2 req,StaplerResponse2 res,DeliveryProblem problem)throws Exception{res.setStatus(problem.status());req.setAttribute("problem",problem.getMessage());req.setAttribute("loginRequired",problem.status()==401);req.setAttribute("identityUnknown","PRINCIPAL_UNKNOWN".equals(problem.code()));view(req,res,"problem");}
-    private static void get(StaplerRequest2 req){if(!"GET".equals(req.getMethod()))throw new DeliveryProblem(405,"INVALID_INPUT");}
-    private static UUID uuid(String value){if(value==null || !value.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"))throw DeliveryProblem.invalid();return UUID.fromString(value);}
-    private static String parameter(StaplerRequest2 req,String key,int max){var values=req.getParameterValues(key);if(values==null || values.length!=1 || values[0].length()>max)throw DeliveryProblem.invalid();Wire.unicode(values[0]);return values[0];}
-    private static void post(StaplerRequest2 req,boolean multipart){
-        var config=DeliveryPluginConfiguration.get();config.validate();var origins=Collections.list(req.getHeaders("Origin"));
-        if(origins.size()!=1 || !config.getPublicOrigin().equals(origins.getFirst()))throw new DeliveryProblem(403,"NOT_AUTHORIZED");
-        if(!multipart){long length=req.getContentLengthLong();if(length<0 || length>16384 || req.getContentType()==null || !req.getContentType().split(";",2)[0].equalsIgnoreCase("application/x-www-form-urlencoded"))throw DeliveryProblem.invalid();}
-        var crumbIssuer=Jenkins.get().getCrumbIssuer();if(crumbIssuer==null)throw new DeliveryProblem(403,"NOT_AUTHORIZED");
-        String field=crumbIssuer.getCrumbRequestField();var headers=Collections.list(req.getHeaders(field));String crumb=headers.size()==1?headers.getFirst():null;
-        if(!multipart && headers.isEmpty())crumb=parameter(req,field,256);
-        if(crumb==null || crumb.length()>256 || !crumbIssuer.validateCrumb(req,crumbIssuer.getDescriptor().getCrumbSalt(),crumb))throw new DeliveryProblem(403,"NOT_AUTHORIZED");
+@Extension
+public final class DeliveryRootAction implements RootAction {
+    private static final JenkinsOidcActorResolver IDENTITIES = new JenkinsOidcActorResolver();
+
+    @Override public String getUrlName() { return "anlieferung"; }
+    @Override public String getDisplayName() { return "CSV-Anlieferung"; }
+    @Override public String getIconFileName() { return "symbol-upload"; }
+
+    public String getCrumbField() {
+        var issuer = Jenkins.get().getCrumbIssuer();
+        return issuer == null ? "" : issuer.getCrumbRequestField();
     }
-    public void doIndex(StaplerRequest2 req,StaplerResponse2 res)throws Exception{
-        try{get(req);var user=actor(req);String search=req.getParameter("search");if(search==null)search="";if(search.length()>100)throw DeliveryProblem.invalid();
-            var api=new IngestionApiClient();req.setAttribute("eligible",api.listEligible(user,search));req.setAttribute("submissions",api.list(user));req.setAttribute("search",search);view(req,res,"index");
-        }catch(DeliveryProblem p){fail(req,res,p);}
+    public String getCrumb() {
+        var issuer = Jenkins.get().getCrumbIssuer();
+        return issuer == null ? "" : issuer.getCrumb();
     }
-    @RequirePOST public void doIdentify(StaplerRequest2 req,StaplerResponse2 res)throws Exception{
-        try{post(req,false);var user=actor(req);new IngestionApiClient().identify(user,uuid(parameter(req,"commandId",36)));redirect(res,base(req));}catch(DeliveryProblem p){fail(req,res,p);}
+    public boolean isProcessingReady() { return DeliverySteps.ready() && CsvJobProvisioner.current() != null; }
+
+    private JenkinsOidcActorResolver.UserTokenContext actor(StaplerRequest2 request) {
+        Jenkins.get().checkPermission(Jenkins.READ);
+        return IDENTITIES.current(request);
     }
-    @RequirePOST public void doPrepare(StaplerRequest2 req,StaplerResponse2 res)throws Exception{
-        try{post(req,false);var user=actor(req);requireReady();String mode=parameter(req,"mode",12),digest=parameter(req,"configurationDigest",64);
-            if(!Set.of("replace","append").contains(mode)||!Wire.hash(digest))throw DeliveryProblem.invalid();
-            var input=new Wire.Create(uuid(parameter(req,"datasetId",36)),uuid(parameter(req,"issueId",36)),mode,digest,parameter(req,"comment",4000));
-            var created=new IngestionApiClient().create(user,uuid(parameter(req,"commandId",36)),input);redirect(res,base(req)+"uploadForm?id="+created.submissionId());
-        }catch(DeliveryProblem p){fail(req,res,p);}
+
+    private static UUID uuid(String value) {
+        if (value == null || !value.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")) {
+            throw DeliveryProblem.invalid();
+        }
+        return UUID.fromString(value);
     }
-    public void doUploadForm(StaplerRequest2 req,StaplerResponse2 res)throws Exception{
-        try{get(req);var user=actor(req);requireReady();UUID id=uuid(parameter(req,"id",36));var permit=new IngestionApiClient().uploadPermit(user,id);
-            if(!id.equals(permit.submissionId()))throw DeliveryProblem.unavailable();req.setAttribute("submission",id.toString());req.setAttribute("uploadKey",UUID.randomUUID().toString());req.setAttribute("uploadLimit",Math.min(permit.maxBytes(),DeliveryPluginConfiguration.get().getMaxUploadBytes()));view(req,res,"upload");
-        }catch(DeliveryProblem p){fail(req,res,p);}
+
+    public void doIndex(StaplerRequest2 request, StaplerResponse2 response) throws Exception {
+        try {
+            var user = actor(request);
+            String search = Objects.requireNonNullElse(request.getParameter("search"), "");
+            if (search.length() > 100) throw DeliveryProblem.invalid();
+            request.setAttribute("eligible", new DeliveryApi().eligible(user, search));
+            request.setAttribute("search", search);
+            view(request, response, "index");
+        } catch (DeliveryProblem problem) {
+            failure(request, response, problem);
+        }
     }
-    @RequirePOST public void doUpload(StaplerRequest2 req,StaplerResponse2 res)throws IOException{
-        try{
-            post(req,true);var user=actor(req);requireReady();String query=req.getQueryString();if(query==null || !query.startsWith("id=") || query.length()!=39)throw new DeliveryProblem(400,"INVALID_UPLOAD_REFERENCE");
-            UUID id=uuid(query.substring(3));var keys=Collections.list(req.getHeaders("Idempotency-Key"));if(keys.size()!=1 || !keys.getFirst().matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"))throw new DeliveryProblem(400,"INVALID_UPLOAD_COMMAND");UUID key=uuid(keys.getFirst());
-            var api=new IngestionApiClient();var permit=api.uploadPermit(user,id);if(!id.equals(permit.submissionId()))throw DeliveryProblem.unavailable();
-            long limit=Math.min(permit.maxBytes(),DeliveryPluginConfiguration.get().getMaxUploadBytes());var store=new IncomingUploadStore(Jenkins.get().getRootDir().toPath());
-            var file=store.receive(id,limit,(path,cap)->MultipartCsv.read(req,path,cap));
-            String proof=Wire.spoolProof(ServiceTokenClient.pluginSecret(),id,file.size(),file.sha256(),file.originalName(),file.privateSpoolReference());
-            var receipt=api.seal(user,id,key,new Wire.Seal(file.size(),file.sha256(),file.originalName(),file.privateSpoolReference(),proof));if(!id.equals(receipt.submissionId()))throw DeliveryProblem.unavailable();
-            json(res,201,Map.of("statusUrl",base(req)+"status?id="+id));
-        }catch(DeliveryProblem p){json(res,p.status(),Map.of("code",p.code(),"message",p.getMessage()));}
-        catch(IOException e){var p=DeliveryProblem.unavailable();json(res,p.status(),Map.of("code",p.code(),"message",p.getMessage()));}
+
+    @RequirePOST
+    public void doUpload(StaplerRequest2 request, StaplerResponse2 response) throws IOException {
+        try {
+            var user = actor(request);
+            var config = DeliveryPluginConfiguration.get();
+            config.validate();
+            if (!Collections.list(request.getHeaders("Origin")).equals(List.of(config.getPublicOrigin()))) {
+                throw new DeliveryProblem(403, "NOT_AUTHORIZED");
+            }
+            var issuer = Jenkins.get().getCrumbIssuer();
+            if (issuer == null) throw new DeliveryProblem(403, "NOT_AUTHORIZED");
+            var crumbs = Collections.list(request.getHeaders(issuer.getCrumbRequestField()));
+            if (crumbs.size() != 1 || crumbs.getFirst().length() > 256
+                || !issuer.validateCrumb(request, issuer.getDescriptor().getCrumbSalt(), crumbs.getFirst())) {
+                throw new DeliveryProblem(403, "NOT_AUTHORIZED");
+            }
+
+            var job = CsvJobProvisioner.current();
+            if (job == null || !DeliverySteps.ready()) throw new DeliveryProblem(503, "PROCESSOR_NOT_READY");
+            var dataset = uuid(request.getHeader("X-Delivery-Dataset"));
+            var issue = uuid(request.getHeader("X-Delivery-Issue"));
+            String mode = Objects.requireNonNullElse(request.getHeader("X-Delivery-Mode"), "");
+            if (!Set.of("replace", "append").contains(mode)) throw DeliveryProblem.invalid();
+
+            var id = UUID.randomUUID();
+            var store = new IncomingUploadStore(Jenkins.get().getRootDir().toPath());
+            var upload = store.receive(id, config.getMaxUploadBytes(), (path, limit) -> MultipartCsv.read(request, path, limit));
+            var api = new DeliveryApi();
+            boolean queued = false;
+            try {
+                api.create(user, id, new DeliveryApi.Create(dataset, issue, mode,
+                    upload.originalName(), upload.size(), upload.sha256()));
+                try (var elevated = ACL.as2(ACL.SYSTEM2)) {
+                    queued = DeliveryQueueDecision.schedule(Jenkins.get().getQueue(), job, new DeliveryQueueAction(id)).isAccepted();
+                } catch (RuntimeException error) {
+                    api.cancel(user, id);
+                    throw DeliveryProblem.unavailable();
+                }
+                if (!queued) {
+                    api.cancel(user, id);
+                    throw DeliveryProblem.unavailable();
+                }
+            } finally {
+                if (!queued) store.remove(id);
+            }
+            json(response, 201, Map.of("statusUrl", request.getContextPath() + "/anlieferung/status?id=" + id));
+        } catch (DeliveryProblem problem) {
+            json(response, problem.status(), Map.of("code", problem.code(), "message", problem.getMessage()));
+        } catch (IOException error) {
+            var problem = DeliveryProblem.unavailable();
+            json(response, problem.status(), Map.of("code", problem.code(), "message", problem.getMessage()));
+        }
     }
-    public void doStatus(StaplerRequest2 req,StaplerResponse2 res)throws Exception{
-        try{get(req);var user=actor(req);UUID id=uuid(parameter(req,"id",36));var status=new IngestionApiClient().getStatus(user,id);req.setAttribute("delivery",status);view(req,res,"status");}catch(DeliveryProblem p){fail(req,res,p);}
+
+    public void doStatus(StaplerRequest2 request, StaplerResponse2 response) throws Exception {
+        try {
+            var user = actor(request);
+            var id = uuid(request.getParameter("id"));
+            var state = new DeliveryApi().state(user, id);
+            request.setAttribute("delivery", state);
+            request.setAttribute("deliveryLabel", stateLabel(state.status()));
+            showRun(request, id);
+            view(request, response, "status");
+        } catch (DeliveryProblem problem) {
+            failure(request, response, problem);
+        }
     }
-    public void doReport(StaplerRequest2 req,StaplerResponse2 res)throws Exception{
-        try{get(req);var user=actor(req);UUID id=uuid(parameter(req,"id",36));req.setAttribute("report",new IngestionApiClient().report(user,id));view(req,res,"report");}catch(DeliveryProblem p){fail(req,res,p);}
+
+    private void showRun(StaplerRequest2 request, UUID id) {
+        var job = CsvJobProvisioner.current();
+        if (job == null) return;
+        // Admin has already checked access to this exact submission.
+        try (var elevated = ACL.as2(ACL.SYSTEM2)) {
+            for (var run : job.getBuilds()) {
+                var marker = run.getAction(DeliveryQueueAction.class);
+                if (marker == null || !id.equals(marker.submissionId())) continue;
+                request.setAttribute("runNumber", run.getNumber());
+                var log = run.getLog(30).stream().map(line -> line.substring(0, Math.min(1024, line.length())));
+                request.setAttribute("runLog", String.join("\n", log.toList()));
+                return;
+            }
+        } catch (IOException ignored) {
+            // The Admin status remains usable when Jenkins logs have been removed.
+        }
     }
-    @RequirePOST public void doCancel(StaplerRequest2 req,StaplerResponse2 res)throws Exception{mutate(req,res,false);}
-    @RequirePOST public void doRetry(StaplerRequest2 req,StaplerResponse2 res)throws Exception{mutate(req,res,true);}
-    private void mutate(StaplerRequest2 req,StaplerResponse2 res,boolean retry)throws Exception{
-        try{post(req,false);var user=actor(req);if(retry)requireReady();UUID id=uuid(parameter(req,"id",36)),key=uuid(parameter(req,"commandId",36));long revision;
-            try{revision=Long.parseLong(parameter(req,"statusVersion",19));}catch(NumberFormatException e){throw DeliveryProblem.invalid();}
-            var input=new Wire.Mutation(revision,parameter(req,"reason",4000));var api=new IngestionApiClient();if(retry)api.retry(user,id,key,input);else{api.cancel(user,id,key,input);DeliveryDispatcher.cancelLocal(id);}redirect(res,base(req)+"status?id="+id);
-        }catch(DeliveryProblem p){fail(req,res,p);}
+
+    private void view(StaplerRequest2 request, StaplerResponse2 response, String name) throws Exception {
+        response.setHeader("Cache-Control", "no-store");
+        request.getView(this, name + ".jelly").forward(request, response);
     }
-    private static void redirect(StaplerResponse2 res,String target){res.setStatus(303);res.setHeader("Location",target);res.setHeader("Cache-Control","no-store");}
-    private static void json(StaplerResponse2 res,int status,Object value)throws IOException{res.setStatus(status);res.setHeader("Cache-Control","no-store");res.setContentType("application/json;charset=UTF-8");res.getOutputStream().write(Wire.JSON.writeValueAsBytes(value));}
-    public String stateLabel(String state){return switch(state){case "UPLOADING"->"Upload vorbereitet";case "READY"->"Versiegelt; wartet auf Verarbeitung";case "QUEUED"->"In Warteschlange";case "VALIDATING"->"Eingang wird geprüft";case "STAGING","READY_TO_COMMIT"->"Verarbeitung läuft";case "COMMITTED"->"Angenommen; SQL-Aktualisierung ausstehend";case "PUBLISHED"->"Veröffentlicht";case "FAILED_RETRYABLE"->"Technischer Fehler; neuer Versuch möglich";case "CANCELLED"->"Abgebrochen";default->"Nicht angenommen";};}
-    public boolean canCancel(String state){return Set.of("UPLOADING","READY","QUEUED","VALIDATING","STAGING","READY_TO_COMMIT","FAILED_RETRYABLE").contains(state);}
+
+    private void failure(StaplerRequest2 request, StaplerResponse2 response, DeliveryProblem problem) throws Exception {
+        response.setStatus(problem.status());
+        request.setAttribute("problem", problem.getMessage());
+        request.setAttribute("loginRequired", problem.status() == 401);
+        view(request, response, "problem");
+    }
+
+    private static void json(StaplerResponse2 response, int status, Object value) throws IOException {
+        response.setStatus(status);
+        response.setHeader("Cache-Control", "no-store");
+        response.setContentType("application/json;charset=UTF-8");
+        response.getOutputStream().write(DeliveryApi.JSON.writeValueAsBytes(value));
+    }
+
+    public String stateLabel(String state) {
+        return switch (state) {
+            case "pending" -> "Wartet auf Verarbeitung";
+            case "processing" -> "Verarbeitung läuft";
+            case "accepted" -> "Angenommen";
+            case "rejected" -> "CSV abgelehnt";
+            case "failed" -> "Technischer Fehler";
+            case "cancelled" -> "Abgebrochen";
+            default -> "Status unbekannt";
+        };
+    }
 }

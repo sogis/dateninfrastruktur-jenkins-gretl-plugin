@@ -2,13 +2,7 @@
 <j:jelly xmlns:j="jelly:core" xmlns:l="/lib/layout">
   <l:layout title="Lieferung nicht möglich"><l:main-panel>
     <h1>Lieferung nicht möglich</h1><p>${request.getAttribute('problem')}</p>
-    <j:if test="${request.getAttribute('loginRequired')}"><p><a href="${rootURL}/securityRealm/commenceLogin?from=${rootURL}/data-delivery/">Erneut über Keycloak anmelden</a></p></j:if>
-    <j:if test="${request.getAttribute('identityUnknown')}">
-      <form class="no-json" method="post" action="${rootURL}/data-delivery/identify">
-        <input type="hidden" name="commandId" value="${it.freshCommand()}"/>
-        <button type="submit" class="jenkins-button">Identität bestätigen</button>
-      </form>
-    </j:if>
-    <p><a href="${rootURL}/data-delivery/">Zur Übersicht</a></p>
+    <j:if test="${request.getAttribute('loginRequired')}"><p><a href="${rootURL}/securityRealm/commenceLogin?from=${rootURL}/anlieferung/">Erneut über Keycloak anmelden</a></p></j:if>
+    <p><a href="${rootURL}/anlieferung/">Zur Übersicht</a></p>
   </l:main-panel></l:layout>
 </j:jelly>

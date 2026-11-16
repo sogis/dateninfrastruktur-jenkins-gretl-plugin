@@ -30,7 +30,7 @@ public final class CsvJobProvisioner {
             try(var update=new BulkChange(job)){
                 if(item==null)job.addProperty(new DeliveryJobProperty());
                 if(!fixedDefinition(job))job.setDefinition(new CpsFlowDefinition(SCRIPT,true));
-                job.setDescription("Technische CSV-Ausführung. Start ausschliesslich über einen zentral reservierten Lieferauftrag.");
+                job.setDescription("Technische CSV-Ausführung. Start ausschliesslich über einen berechtigten Lieferauftrag.");
                 job.removeProperty(ParametersDefinitionProperty.class);
                 var permissions=new HashMap<Permission,Set<PermissionEntry>>();
                 var executor=Set.of(new PermissionEntry(AuthorizationType.USER,EXECUTOR));

@@ -1,24 +1,21 @@
 # CSV-Anlieferung für die Dateninfrastruktur
 
-Das Jenkins-Plugin stellt `/jenkins/data-delivery/` bereit. Im gemeinsamen
-Compose-Stack führt `/anlieferung` dorthin. Jenkins meldet Personen über
-Keycloak mit PKCE an; die feste Benutzerkennung ist der OIDC-Subject.
-Datensatzauswahl, Lieferrecht, Status und Validierungsberichte kommen aus der
-Admin-API.
+Im Compose-Stack führt `/anlieferung` nach `/jenkins/anlieferung/`.
+Jenkins meldet Personen mit Keycloak und PKCE an. Die Benutzerkennung ist
+der OIDC-Subject. Admin liefert die berechtigten Ausgaben und prüft die
+Rechte erneut beim Erstellen, Starten und fachlichen Abschluss der Submission.
 
-Ein vorbereiteter Auftrag kann genau eine CSV aufnehmen. Das Plugin schreibt
-die Datei begrenzt und privat unter `$JENKINS_HOME/data-infrastructure/uploads`,
-versiegelt sie mit Grösse und SHA256 und prüft dieselben Bytes beim Materialisieren
-im Run. Das Standardlimit beträgt 100 MiB; das Hardlimit beträgt 256 MiB.
+Das Plugin schreibt genau eine CSV privat unter
+`$JENKINS_HOME/data-infrastructure/uploads`, ermittelt Grösse und SHA-256
+und registriert die Submission mit dem Benutzer-JWT. Das Standardlimit
+beträgt 100 MiB und das Hardlimit 256 MiB.
 
-Die einzige technische Pipeline heisst `di-csv-ingest`. Sie nutzt
-`diClaimDelivery`, `diRunCsv`, `diCompleteDelivery` und `diCleanDelivery`.
-Der Dispatcher prüft ausstehende Aufträge alle fünf Sekunden. Die Admin-API
-besitzt den Datensatzslot und entscheidet über Annahme und Publikation. Der Job
-läuft unter `di-csv-executor`; Lieferanten sehen ihre eigenen Berichte in der
-Anlieferung. Der feste GRETL-Prozessor prüft Eingang und Gesamtsnapshot.
-Er bestätigt echte ClickHouse- und S3-Rücklesebelege, bevor Admin die
-Fachversion annehmen kann.
+Der feste Job `di-csv-ingest` startet GRETL unter `di-csv-executor`.
+Der Run ist über die Submission-ID zugeordnet. Der Status in der Anlieferung
+stammt von Admin. Die Anlieferung zeigt die Taskzustände und Fehlercodes
+aus dem GRETL-Runbericht. Der Prozess
+hat ein Zeitlimit und seine privaten Laufzeitdateien werden nach dem Run
+entfernt.
 
 Build und JenkinsRule-Tests mit Java 21:
 
@@ -27,5 +24,4 @@ mvn -ntp clean package
 ```
 
 Das HPI liegt unter `target/jenkins-gretl-dateninfrastruktur-plugin.hpi`.
-Die JCasC-Konfiguration `diDelivery`, der isolierte Browsertest und die
-Betriebsanleitung gehören zum Schwesterrepository `dateninfrastruktur-dev-stack`.
+JCasC und die isolierten Lieferprüfungen liegen im Dev-Stack.

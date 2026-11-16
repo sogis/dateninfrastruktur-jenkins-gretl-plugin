@@ -10,24 +10,21 @@ import org.kohsuke.stapler.DataBoundSetter;
 @Extension @Symbol("diDelivery")
 public final class DeliveryPluginConfiguration extends GlobalConfiguration {
     public static final long DEFAULT_UPLOAD=104857600L,HARD_UPLOAD=268435456L;
-    public static final String PLUGIN_CREDENTIAL="di-ingestion-plugin",SERVICE_CREDENTIAL="di-ingestion-executor-client";
-    private String backendBaseUri,issuer,publicOrigin,instance;
+    private String backendBaseUri,issuer,publicOrigin;
     private long maxUploadBytes=DEFAULT_UPLOAD;
     public DeliveryPluginConfiguration(){load();}
     public static DeliveryPluginConfiguration get(){return GlobalConfiguration.all().get(DeliveryPluginConfiguration.class);}
     @DataBoundSetter public void setBackendBaseUri(String value){backendBaseUri=value;}
     @DataBoundSetter public void setIssuer(String value){issuer=value;}
     @DataBoundSetter public void setPublicOrigin(String value){publicOrigin=value;}
-    @DataBoundSetter public void setInstance(String value){instance=value;}
     @DataBoundSetter public void setMaxUploadBytes(long value){maxUploadBytes=value;}
     public String getBackendBaseUri(){return backendBaseUri;}
     public String getIssuer(){return issuer;}
     public String getPublicOrigin(){return publicOrigin;}
-    public String getInstance(){return instance;}
     public long getMaxUploadBytes(){return maxUploadBytes;}
     public boolean configured(){return backendBaseUri!=null;}
     public void validate(){
-        if(!"http://admin:8080/internal/ingestion/".equals(backendBaseUri) || instance==null || !instance.matches("[0-9a-f]{32}") || maxUploadBytes<1 || maxUploadBytes>HARD_UPLOAD)throw new IllegalStateException("Invalid explicit delivery backend binding");
+        if(!"http://admin:8080/internal/deliveries/".equals(backendBaseUri) || maxUploadBytes<1 || maxUploadBytes>HARD_UPLOAD)throw new IllegalStateException("Invalid explicit delivery backend binding");
         if(!origin(issuer,"/realms/dateninfrastruktur") || !origin(publicOrigin,""))throw new IllegalStateException("Invalid delivery issuer or public origin");
     }
     private static boolean origin(String value,String path){
