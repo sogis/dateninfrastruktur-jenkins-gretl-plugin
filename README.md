@@ -17,7 +17,14 @@ aus dem GRETL-Runbericht. Jenkins bewahrt den originalen Validierungsbericht
 bis 64 MiB unverändert und privat beim zugehörigen Build auf. Der
 ursprüngliche Einreicher kann ihn nach der Admin-Statusprüfung über die
 Statusseite herunterladen. Die Datei kann konkrete CSV-Werte enthalten.
-Jenkins wertet die Meldungen nicht aus und entfernt den Bericht mit dem Build.
+Jenkins wertet die Meldungen nicht aus.
+
+Der eingebaute Jenkins LogRotator bewahrt die Builds von `di-csv-ingest`
+grundsätzlich 30 Tage auf. Nach Ablauf der Frist löscht Jenkins den Build
+samt vollständigem Validatorlog bei der nächsten regulären Logrotation.
+Laufende Builds und als «Keep forever» markierte Builds bleiben von der
+Löschung ausgenommen.
+
 Der Prozess hat ein Zeitlimit. Jenkins entfernt die privaten Laufzeitdateien
 nach dem Run und protokolliert einen allfälligen Cleanup-Fehler mit der
 Lieferkennung.

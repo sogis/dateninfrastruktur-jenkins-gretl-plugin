@@ -4,6 +4,7 @@ import hudson.BulkChange;
 import hudson.init.*;
 import hudson.model.*;
 import hudson.security.*;
+import hudson.tasks.LogRotator;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -32,6 +33,9 @@ public final class CsvJobProvisioner {
                 if(!fixedDefinition(job))job.setDefinition(new CpsFlowDefinition(SCRIPT,true));
                 job.setDescription("Technische CSV-Ausführung. Start ausschliesslich über einen berechtigten Lieferauftrag.");
                 job.removeProperty(ParametersDefinitionProperty.class);
+                var retention = new LogRotator(30, -1, -1, -1);
+                retention.setRemoveLastBuild(true);
+                job.setBuildDiscarder(retention);
                 var permissions=new HashMap<Permission,Set<PermissionEntry>>();
                 var executor=Set.of(new PermissionEntry(AuthorizationType.USER,EXECUTOR));
                 for(var p:List.of(Item.READ,Item.BUILD,Item.WORKSPACE,Item.CANCEL))permissions.put(p,executor);
