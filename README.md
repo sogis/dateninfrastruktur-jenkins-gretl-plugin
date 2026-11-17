@@ -13,8 +13,11 @@ beträgt 100 MiB und das Hardlimit 256 MiB.
 Der feste Job `di-csv-ingest` startet GRETL unter `di-csv-executor`.
 Der Run ist über die Submission-ID zugeordnet. Der Status in der Anlieferung
 stammt von Admin. Die Anlieferung zeigt die Taskzustände und Fehlercodes
-aus dem GRETL-Runbericht. Bei einem fachlichen Reject erscheinen ausgewählte
-Validierungsdiagnosen im Buildlog und auf der berechtigten Statusseite.
+aus dem GRETL-Runbericht. Jenkins bewahrt den originalen Validierungsbericht
+bis 64 MiB unverändert und privat beim zugehörigen Build auf. Der
+ursprüngliche Einreicher kann ihn nach der Admin-Statusprüfung über die
+Statusseite herunterladen. Die Datei kann konkrete CSV-Werte enthalten.
+Jenkins wertet die Meldungen nicht aus und entfernt den Bericht mit dem Build.
 Der Prozess hat ein Zeitlimit. Jenkins entfernt die privaten Laufzeitdateien
 nach dem Run und protokolliert einen allfälligen Cleanup-Fehler mit der
 Lieferkennung.

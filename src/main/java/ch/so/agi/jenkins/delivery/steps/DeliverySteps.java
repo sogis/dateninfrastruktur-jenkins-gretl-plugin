@@ -8,6 +8,7 @@ import ch.so.agi.jenkins.delivery.identity.ServiceTokenClient;
 import ch.so.agi.jenkins.delivery.queue.CsvJobProvisioner;
 import ch.so.agi.jenkins.delivery.queue.DeliveryQueueAction;
 import ch.so.agi.jenkins.delivery.upload.IncomingUploadStore;
+import com.google.common.io.ByteStreams;
 import hudson.AbortException;
 import hudson.EnvVars;
 import hudson.Extension;
@@ -17,16 +18,18 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
+import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -39,20 +42,11 @@ public final class DeliverySteps extends Step {
     private static final String CLICKHOUSE = "http://clickhouse:8123";
     private static final String CLICKHOUSE_USER = "ch_delivery";
 
-    private static final int MAX_VALIDATION_BYTES = 256 * 1024;
-    private static final int MAX_DIAGNOSTICS = 50;
-    private static final String FIELD = "[A-Za-z][A-Za-z0-9_]{0,62}";
-    private static final Pattern CSV_ERROR = Pattern.compile(
-        "Error: line ([0-9]{1,10}): " + FIELD + "\\." + FIELD + "\\." + FIELD + ": tid o[0-9]+: (.*)");
-    private static final Pattern UNIQUE_ERROR = Pattern.compile(
-        "(Unique constraint " + FIELD + "(?:\\." + FIELD + "){3} is violated!).*");
-    private static final Pattern ATTRIBUTE_ERROR = Pattern.compile(
-        "(Attribute " + FIELD + " (?:requires a value|has wrong number of values"
-        + "|is length restricted to [0-9]{1,5}|must not contain control characters))");
-    private static final Pattern VALUE_ERROR = Pattern.compile(
-        "(?:value .*|(?:date|datetime) value <.*>) (is (?:not a number|out of range|not in range"
-        + "|not a valid Date|not a BOOLEAN|not a member of the enumeration) in attribute " + FIELD + ")"
-        + "|(invalid format of (?:date|datetime)) value <.*> (in attribute " + FIELD + ")");
+    public static final String VALIDATION_LOG = "validation.log";
+    private static final int SIGNAL_EXIT_BASE = 128;
+    private static final long MAX_VALIDATION_BYTES = 64L * 1024 * 1024;
+    private static final FileAttribute<Set<PosixFilePermission>> PRIVATE_FILE = PosixFilePermissions.asFileAttribute(
+        PosixFilePermissions.fromString("rw-------"));
 
     @DataBoundConstructor
     public DeliverySteps() {}
@@ -108,6 +102,7 @@ public final class DeliverySteps extends Step {
                             "--work-dir", "work", "--report", "run.json")
                         .envs(environment).pwd(dir.toFile()).stdout(OutputStream.nullOutputStream()).start();
                     int exit = process.joinWithTimeout(31, TimeUnit.MINUTES, listener);
+                    archiveValidationLog(dir, run.getRootDir().toPath(), exit, listener);
                     logReport(dir.resolve("run.json"), listener);
                     if (exit != 0) {
                         throw new AbortException("GRETL-Lauf fehlgeschlagen. Details stehen im Joblog.");
@@ -145,11 +140,9 @@ public final class DeliverySteps extends Step {
                 return;
             }
             var result = DeliveryApi.JSON.readTree(Files.readAllBytes(report));
-            boolean rejected = false;
             for (var task : result.path("execution").path("tasks")) {
                 String id = task.path("taskId").asString("");
                 String status = task.path("status").asString("");
-                rejected |= "reject".equals(id) && "SUCCEEDED".equals(status);
                 if (id.matches("[A-Za-z][A-Za-z0-9_]{0,63}") && status.matches("[A-Z_]{1,24}")) {
                     listener.getLogger().println("GRETL " + id + " " + status);
                 }
@@ -158,57 +151,43 @@ public final class DeliverySteps extends Step {
                 String code = error.path("code").asString("");
                 if (code.matches("[A-Z0-9_]{1,80}")) listener.getLogger().println("GRETL " + code);
             }
-            if (rejected) logValidation(report.resolveSibling("validation.log"), listener);
         } catch (IOException | RuntimeException error) {
             listener.getLogger().println("GRETL-Runbericht konnte nicht gelesen werden.");
         }
     }
 
-    static void logValidation(Path log, TaskListener listener) {
-        // The validator's text log includes submitted values and internal paths.
-        // Print only known rule/attribute messages, with the values removed.
-        try (var input = Files.newInputStream(log, LinkOption.NOFOLLOW_LINKS)) {
-            byte[] bytes = input.readNBytes(MAX_VALIDATION_BYTES + 1);
-            int count = 0;
-            boolean limited = bytes.length > MAX_VALIDATION_BYTES;
-            for (String line : new String(bytes, 0, Math.min(bytes.length, MAX_VALIDATION_BYTES),
-                                          StandardCharsets.UTF_8).split("\n")) {
-                String diagnostic = validationDiagnostic(line.stripTrailing());
-                if (diagnostic == null) continue;
-                if (count == MAX_DIAGNOSTICS) {
-                    limited = true;
-                    break;
-                }
-                listener.getLogger().println(diagnostic);
-                count++;
+    static void archiveValidationLog(Path uploadDir, Path runDir, int exit, TaskListener listener) {
+        var source = uploadDir.resolve(VALIDATION_LOG);
+        if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) return;
+
+        // On POSIX, a signal exit may leave the validator mid-write. GRETL
+        // publishes run.json at the end, after processing and closing task output.
+        if (exit >= SIGNAL_EXIT_BASE
+            && !Files.isRegularFile(uploadDir.resolve("run.json"), LinkOption.NOFOLLOW_LINKS)) return;
+
+        try (var input = Files.newByteChannel(source, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            if (input.size() > MAX_VALIDATION_BYTES) {
+                listener.getLogger().println("Der Validierungsbericht überschreitet 64 MiB und wurde nicht gespeichert.");
+                return;
             }
-            if (limited) listener.getLogger().println("Die CSV-Validierungsdiagnosen wurden begrenzt.");
-            if (count == 0) listener.getLogger().println("Keine auswertbare CSV-Validierungsdiagnose verfügbar.");
-        } catch (IOException error) {
-            listener.getLogger().println("CSV-Validierungsdiagnosen konnten nicht gelesen werden.");
+            var staging = Files.createTempFile(runDir, "validation-", ".tmp", PRIVATE_FILE);
+            try {
+                try (var output = Files.newOutputStream(staging, LinkOption.NOFOLLOW_LINKS)) {
+                    var stream = Channels.newInputStream(input);
+                    ByteStreams.limit(stream, MAX_VALIDATION_BYTES).transferTo(output);
+                    if (stream.read() != -1) {
+                        listener.getLogger().println("Der Validierungsbericht überschreitet 64 MiB und wurde nicht gespeichert.");
+                        return;
+                    }
+                }
+                // Publish the complete copy atomically without replacing an existing file.
+                Files.createLink(runDir.resolve(VALIDATION_LOG), staging);
+            } finally {
+                Files.deleteIfExists(staging);
+            }
+        } catch (IOException | UnsupportedOperationException | SecurityException error) {
+            listener.getLogger().println("Der Validierungsbericht konnte nicht vollständig gespeichert werden.");
         }
-    }
-
-    private static String validationDiagnostic(String line) {
-        if (line.startsWith("Error: attributes of headerrecord: [") && line.contains("] not found in iliModel: ")) {
-            return "CSV-Validierung, Kopfzeile. Die Spaltennamen passen nicht zum gebundenen Modell.";
-        }
-        var error = CSV_ERROR.matcher(line);
-        if (!error.matches()) return null;
-
-        String message = error.group(2);
-        var unique = UNIQUE_ERROR.matcher(message);
-        var attribute = ATTRIBUTE_ERROR.matcher(message);
-        var value = VALUE_ERROR.matcher(message);
-        String detail = "Modellverletzung.";
-        if (unique.matches()) {
-            detail = unique.group(1);
-        } else if (attribute.matches()) {
-            detail = attribute.group(1);
-        } else if (value.matches()) {
-            detail = value.group(1) != null ? "Value " + value.group(1) : value.group(2) + " " + value.group(3);
-        }
-        return "CSV-Validierung, Zeile " + error.group(1) + ". " + detail;
     }
 
     private static void prepare(Path dir, UUID id, DeliveryPluginConfiguration config) throws IOException {
@@ -239,7 +218,7 @@ public final class DeliverySteps extends Step {
     }
 
     private static void writePrivate(Path path, String content) throws IOException {
-        Files.createFile(path, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
+        Files.createFile(path, PRIVATE_FILE);
         Files.writeString(path, content);
     }
 
