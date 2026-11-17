@@ -1,6 +1,7 @@
 package ch.so.agi.jenkins.delivery.steps;
 
 import ch.so.agi.jenkins.delivery.client.DeliveryApi;
+import ch.so.agi.jenkins.delivery.client.DeliveryProblem;
 import ch.so.agi.jenkins.delivery.config.DeliveryPluginConfiguration;
 import ch.so.agi.jenkins.delivery.identity.DeliveryCredentials;
 import ch.so.agi.jenkins.delivery.identity.ServiceTokenClient;
@@ -16,6 +17,7 @@ import hudson.model.Run;
 import hudson.model.TaskListener;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowExecution;
 import org.jenkinsci.plugins.workflow.job.WorkflowRun;
@@ -35,6 +38,21 @@ public final class DeliverySteps extends Step {
     private static final Path JOB = Path.of("/opt/dateninfrastruktur/csv-delivery/job.groovy");
     private static final String CLICKHOUSE = "http://clickhouse:8123";
     private static final String CLICKHOUSE_USER = "ch_delivery";
+
+    private static final int MAX_VALIDATION_BYTES = 256 * 1024;
+    private static final int MAX_DIAGNOSTICS = 50;
+    private static final String FIELD = "[A-Za-z][A-Za-z0-9_]{0,62}";
+    private static final Pattern CSV_ERROR = Pattern.compile(
+        "Error: line ([0-9]{1,10}): " + FIELD + "\\." + FIELD + "\\." + FIELD + ": tid o[0-9]+: (.*)");
+    private static final Pattern UNIQUE_ERROR = Pattern.compile(
+        "(Unique constraint " + FIELD + "(?:\\." + FIELD + "){3} is violated!).*");
+    private static final Pattern ATTRIBUTE_ERROR = Pattern.compile(
+        "(Attribute " + FIELD + " (?:requires a value|has wrong number of values"
+        + "|is length restricted to [0-9]{1,5}|must not contain control characters))");
+    private static final Pattern VALUE_ERROR = Pattern.compile(
+        "(?:value .*|(?:date|datetime) value <.*>) (is (?:not a number|out of range|not in range"
+        + "|not a valid Date|not a BOOLEAN|not a member of the enumeration) in attribute " + FIELD + ")"
+        + "|(invalid format of (?:date|datetime)) value <.*> (in attribute " + FIELD + ")");
 
     @DataBoundConstructor
     public DeliverySteps() {}
@@ -106,9 +124,17 @@ public final class DeliverySteps extends Step {
                 listener.getLogger().println("GRETL wurde unterbrochen: " + error.getClass().getSimpleName());
                 throw new AbortException("GRETL-Lauf konnte nicht ausgeführt werden.");
             } finally {
-                if (dir != null) store.remove(id);
+                if (dir != null) removeUpload(store, id, listener);
             }
             return null;
+        }
+    }
+
+    static void removeUpload(IncomingUploadStore store, UUID id, TaskListener listener) {
+        try {
+            store.remove(id);
+        } catch (IOException | java.io.UncheckedIOException | DeliveryProblem error) {
+            listener.getLogger().println("Private Lieferdateien konnten nicht entfernt werden. Lieferkennung " + id);
         }
     }
 
@@ -119,9 +145,11 @@ public final class DeliverySteps extends Step {
                 return;
             }
             var result = DeliveryApi.JSON.readTree(Files.readAllBytes(report));
+            boolean rejected = false;
             for (var task : result.path("execution").path("tasks")) {
                 String id = task.path("taskId").asString("");
                 String status = task.path("status").asString("");
+                rejected |= "reject".equals(id) && "SUCCEEDED".equals(status);
                 if (id.matches("[A-Za-z][A-Za-z0-9_]{0,63}") && status.matches("[A-Z_]{1,24}")) {
                     listener.getLogger().println("GRETL " + id + " " + status);
                 }
@@ -130,9 +158,57 @@ public final class DeliverySteps extends Step {
                 String code = error.path("code").asString("");
                 if (code.matches("[A-Z0-9_]{1,80}")) listener.getLogger().println("GRETL " + code);
             }
+            if (rejected) logValidation(report.resolveSibling("validation.log"), listener);
         } catch (IOException | RuntimeException error) {
             listener.getLogger().println("GRETL-Runbericht konnte nicht gelesen werden.");
         }
+    }
+
+    static void logValidation(Path log, TaskListener listener) {
+        // The validator's text log includes submitted values and internal paths.
+        // Print only known rule/attribute messages, with the values removed.
+        try (var input = Files.newInputStream(log, LinkOption.NOFOLLOW_LINKS)) {
+            byte[] bytes = input.readNBytes(MAX_VALIDATION_BYTES + 1);
+            int count = 0;
+            boolean limited = bytes.length > MAX_VALIDATION_BYTES;
+            for (String line : new String(bytes, 0, Math.min(bytes.length, MAX_VALIDATION_BYTES),
+                                          StandardCharsets.UTF_8).split("\n")) {
+                String diagnostic = validationDiagnostic(line.stripTrailing());
+                if (diagnostic == null) continue;
+                if (count == MAX_DIAGNOSTICS) {
+                    limited = true;
+                    break;
+                }
+                listener.getLogger().println(diagnostic);
+                count++;
+            }
+            if (limited) listener.getLogger().println("Die CSV-Validierungsdiagnosen wurden begrenzt.");
+            if (count == 0) listener.getLogger().println("Keine auswertbare CSV-Validierungsdiagnose verfügbar.");
+        } catch (IOException error) {
+            listener.getLogger().println("CSV-Validierungsdiagnosen konnten nicht gelesen werden.");
+        }
+    }
+
+    private static String validationDiagnostic(String line) {
+        if (line.startsWith("Error: attributes of headerrecord: [") && line.contains("] not found in iliModel: ")) {
+            return "CSV-Validierung, Kopfzeile. Die Spaltennamen passen nicht zum gebundenen Modell.";
+        }
+        var error = CSV_ERROR.matcher(line);
+        if (!error.matches()) return null;
+
+        String message = error.group(2);
+        var unique = UNIQUE_ERROR.matcher(message);
+        var attribute = ATTRIBUTE_ERROR.matcher(message);
+        var value = VALUE_ERROR.matcher(message);
+        String detail = "Modellverletzung.";
+        if (unique.matches()) {
+            detail = unique.group(1);
+        } else if (attribute.matches()) {
+            detail = attribute.group(1);
+        } else if (value.matches()) {
+            detail = value.group(1) != null ? "Value " + value.group(1) : value.group(2) + " " + value.group(3);
+        }
+        return "CSV-Validierung, Zeile " + error.group(1) + ". " + detail;
     }
 
     private static void prepare(Path dir, UUID id, DeliveryPluginConfiguration config) throws IOException {
@@ -170,7 +246,7 @@ public final class DeliverySteps extends Step {
     private static void reportFailure(UUID id, TaskListener listener) {
         try {
             new DeliveryApi().fail(ServiceTokenClient.acquire(), id);
-        } catch (ch.so.agi.jenkins.delivery.client.DeliveryProblem error) {
+        } catch (DeliveryProblem error) {
             listener.getLogger().println("Admin hat die Fehlermeldung nicht bestätigt (HTTP " + error.status() + ").");
         } catch (RuntimeException error) {
             listener.getLogger().println("Admin hat keine technische Fehlermeldung bestätigt.");
