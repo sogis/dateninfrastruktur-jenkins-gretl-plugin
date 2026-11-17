@@ -43,6 +43,7 @@ public final class DeliverySteps extends Step {
     private static final String CLICKHOUSE_USER = "ch_delivery";
 
     public static final String VALIDATION_LOG = "validation.log";
+    private static final int SIGNAL_EXIT_BASE = 128;
     private static final long MAX_VALIDATION_BYTES = 64L * 1024 * 1024;
     private static final FileAttribute<Set<PosixFilePermission>> PRIVATE_FILE = PosixFilePermissions.asFileAttribute(
         PosixFilePermissions.fromString("rw-------"));
@@ -101,7 +102,7 @@ public final class DeliverySteps extends Step {
                             "--work-dir", "work", "--report", "run.json")
                         .envs(environment).pwd(dir.toFile()).stdout(OutputStream.nullOutputStream()).start();
                     int exit = process.joinWithTimeout(31, TimeUnit.MINUTES, listener);
-                    archiveValidationLog(dir, run.getRootDir().toPath(), listener);
+                    archiveValidationLog(dir, run.getRootDir().toPath(), exit, listener);
                     logReport(dir.resolve("run.json"), listener);
                     if (exit != 0) {
                         throw new AbortException("GRETL-Lauf fehlgeschlagen. Details stehen im Joblog.");
@@ -155,9 +156,14 @@ public final class DeliverySteps extends Step {
         }
     }
 
-    static void archiveValidationLog(Path uploadDir, Path runDir, TaskListener listener) {
+    static void archiveValidationLog(Path uploadDir, Path runDir, int exit, TaskListener listener) {
         var source = uploadDir.resolve(VALIDATION_LOG);
         if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) return;
+
+        // On POSIX, a signal exit may leave the validator mid-write. GRETL
+        // publishes run.json at the end, after processing and closing task output.
+        if (exit >= SIGNAL_EXIT_BASE
+            && !Files.isRegularFile(uploadDir.resolve("run.json"), LinkOption.NOFOLLOW_LINKS)) return;
 
         try (var input = Files.newByteChannel(source, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
             if (input.size() > MAX_VALIDATION_BYTES) {

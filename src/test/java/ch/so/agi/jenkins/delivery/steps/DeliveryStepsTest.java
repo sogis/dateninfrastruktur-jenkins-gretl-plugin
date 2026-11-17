@@ -27,9 +27,9 @@ class DeliveryStepsTest {
         Files.write(source, original);
         var output = new ByteArrayOutputStream();
         try (var listener = new StreamTaskListener(output, StandardCharsets.UTF_8)) {
-            DeliverySteps.archiveValidationLog(upload, run, listener);
+            DeliverySteps.archiveValidationLog(upload, run, 0, listener);
             Files.writeString(source, "Do not overwrite");
-            DeliverySteps.archiveValidationLog(upload, run, listener);
+            DeliverySteps.archiveValidationLog(upload, run, 0, listener);
             DeliverySteps.removeUpload(store, id, listener);
         }
         var archived = run.resolve("validation.log");
@@ -44,13 +44,27 @@ class DeliveryStepsTest {
         var run = Files.createDirectory(home.resolve("run"));
         var output = new ByteArrayOutputStream();
         try (var listener = new StreamTaskListener(output, StandardCharsets.UTF_8)) {
-            DeliverySteps.archiveValidationLog(upload, run, listener);
+            DeliverySteps.archiveValidationLog(upload, run, 0, listener);
             var other = Files.writeString(home.resolve("other"), "Private");
             Files.createSymbolicLink(upload.resolve("validation.log"), other);
-            DeliverySteps.archiveValidationLog(upload, run, listener);
+            DeliverySteps.archiveValidationLog(upload, run, 0, listener);
         }
         assertFalse(Files.exists(run.resolve("validation.log")));
         assertEquals(0, output.size());
+    }
+
+    @Test void requiresTheTerminalRunReportAfterSignalTermination() throws Exception {
+        var upload = Files.createDirectory(home.resolve("upload"));
+        var run = Files.createDirectory(home.resolve("run"));
+        var log = Files.writeString(upload.resolve("validation.log"), "Original");
+        try (var listener = new StreamTaskListener(new ByteArrayOutputStream(), StandardCharsets.UTF_8)) {
+            DeliverySteps.archiveValidationLog(upload, run, 143, listener);
+            var archived = run.resolve("validation.log");
+            assertFalse(Files.exists(archived));
+            Files.createFile(upload.resolve("run.json"));
+            DeliverySteps.archiveValidationLog(upload, run, 143, listener);
+            assertArrayEquals(Files.readAllBytes(log), Files.readAllBytes(archived));
+        }
     }
 
     @Test void skipsOversizedLogsWithoutPublishingAPartialCopy() throws Exception {
@@ -62,7 +76,7 @@ class DeliveryStepsTest {
         }
         var output = new ByteArrayOutputStream();
         try (var listener = new StreamTaskListener(output, StandardCharsets.UTF_8)) {
-            DeliverySteps.archiveValidationLog(upload, run, listener);
+            DeliverySteps.archiveValidationLog(upload, run, 0, listener);
         }
         try (var entries = Files.list(run)) {
             assertEquals(0, entries.count());
