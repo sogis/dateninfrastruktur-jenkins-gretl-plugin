@@ -12,6 +12,9 @@
       <h2>Jenkins-Lauf ${request.getAttribute('runNumber')}</h2>
       <pre>${request.getAttribute('runLog')}</pre>
     </j:if>
+    <j:if test="${request.getAttribute('validationLogAvailable')}">
+      <p><a href="validationLog?id=${row.id()}">Validierungsbericht herunterladen</a></p>
+    </j:if>
     <p><a href="?id=${row.id()}">Status aktualisieren</a></p>
     <p><a href="${rootURL}/anlieferung/">Zur Übersicht</a></p>
   </l:main-panel></l:layout>

@@ -44,5 +44,14 @@ public final class CsvJobProvisioner {
     public static boolean owned(WorkflowJob job){var marker=job.getProperty(DeliveryJobProperty.class);return JOB.equals(job.getFullName()) && marker!=null && marker.valid();}
     public static boolean fixedDefinition(WorkflowJob job){return job.getDefinition() instanceof CpsFlowDefinition c && c.isSandbox() && SCRIPT.equals(c.getScript());}
     public static boolean usable(WorkflowJob job){return owned(job)&&fixedDefinition(job)&&!job.isDisabled()&&job.getProperty(ParametersDefinitionProperty.class)==null;}
-    public static WorkflowJob current(){try(var elevated=ACL.as2(ACL.SYSTEM2)){var item=Jenkins.get().getItem(JOB);return item instanceof WorkflowJob job && usable(job)?job:null;}}
+    public static WorkflowJob current() {
+        var job = ownedJob();
+        return job != null && usable(job) ? job : null;
+    }
+    public static WorkflowJob ownedJob() {
+        try (var elevated = ACL.as2(ACL.SYSTEM2)) {
+            var item = Jenkins.get().getItem(JOB);
+            return item instanceof WorkflowJob job && owned(job) ? job : null;
+        }
+    }
 }

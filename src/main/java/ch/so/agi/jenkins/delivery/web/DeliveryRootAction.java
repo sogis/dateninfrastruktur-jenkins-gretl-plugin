@@ -10,8 +10,13 @@ import hudson.Extension;
 import hudson.model.RootAction;
 import hudson.security.ACL;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.util.*;
 import jenkins.model.Jenkins;
+import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.kohsuke.stapler.*;
 import org.kohsuke.stapler.interceptor.RequirePOST;
 
@@ -91,7 +96,7 @@ public final class DeliveryRootAction implements RootAction {
                 api.create(user, id, new DeliveryApi.Create(dataset, issue, mode,
                     upload.originalName(), upload.size(), upload.sha256()));
                 try (var elevated = ACL.as2(ACL.SYSTEM2)) {
-                    queued = DeliveryQueueDecision.schedule(Jenkins.get().getQueue(), job, new DeliveryQueueAction(id)).isAccepted();
+                    queued = DeliveryQueueDecision.schedule(Jenkins.get().getQueue(), job, new DeliveryQueueAction(id, user.subject())).isAccepted();
                 } catch (RuntimeException error) {
                     api.cancel(user, id);
                     throw DeliveryProblem.unavailable();
@@ -119,26 +124,67 @@ public final class DeliveryRootAction implements RootAction {
             var state = new DeliveryApi().state(user, id);
             request.setAttribute("delivery", state);
             request.setAttribute("deliveryLabel", stateLabel(state.status()));
-            showRun(request, id);
+            showRun(request, findRun(id), user.subject());
             view(request, response, "status");
         } catch (DeliveryProblem problem) {
             failure(request, response, problem);
         }
     }
 
-    private void showRun(StaplerRequest2 request, UUID id) {
-        var job = CsvJobProvisioner.current();
-        if (job == null) return;
-        // Admin has already checked access to this exact submission.
-        try (var elevated = ACL.as2(ACL.SYSTEM2)) {
-            for (var run : job.getBuilds()) {
-                var marker = run.getAction(DeliveryQueueAction.class);
-                if (marker == null || !id.equals(marker.submissionId())) continue;
-                request.setAttribute("runNumber", run.getNumber());
-                var log = run.getLog(100).stream().map(line -> line.substring(0, Math.min(1024, line.length())));
-                request.setAttribute("runLog", String.join("\n", log.toList()));
+    public void doValidationLog(StaplerRequest2 request, StaplerResponse2 response) throws IOException {
+        response.setHeader("Cache-Control", "no-store");
+        InputStream input;
+        try {
+            var user = actor(request);
+            var id = uuid(request.getParameter("id"));
+            new DeliveryApi().state(user, id);
+            var log = validationLog(findRun(id), user.subject());
+            if (log == null) {
+                response.setStatus(404);
                 return;
             }
+            input = Files.newInputStream(log, LinkOption.NOFOLLOW_LINKS);
+        } catch (DeliveryProblem problem) {
+            response.setStatus(problem.status());
+            return;
+        } catch (IOException error) {
+            response.setStatus(404);
+            return;
+        }
+        try (input) {
+            response.setContentType("text/plain; charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=\"validation.log\"");
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            input.transferTo(response.getOutputStream());
+        }
+    }
+
+    // Call after Admin has authorised access to this exact submission.
+    static WorkflowRun findRun(UUID id) {
+        var job = CsvJobProvisioner.ownedJob();
+        if (job == null) return null;
+        try (var elevated = ACL.as2(ACL.SYSTEM2)) {
+            for (var run : job.getBuilds()) {
+                var markers = run.getActions(DeliveryQueueAction.class);
+                if (markers.size() == 1 && id.equals(markers.getFirst().submissionId())) return run;
+            }
+        }
+        return null;
+    }
+
+    static Path validationLog(WorkflowRun run, String subject) {
+        if (run == null || !run.getAction(DeliveryQueueAction.class).submittedBy(subject)) return null;
+        var path = run.getRootDir().toPath().resolve(DeliverySteps.VALIDATION_LOG);
+        return Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) ? path : null;
+    }
+
+    private void showRun(StaplerRequest2 request, WorkflowRun run, String subject) {
+        if (run == null) return;
+        request.setAttribute("runNumber", run.getNumber());
+        request.setAttribute("validationLogAvailable", validationLog(run, subject) != null);
+        try {
+            var log = run.getLog(100).stream().map(line -> line.substring(0, Math.min(1024, line.length())));
+            request.setAttribute("runLog", String.join("\n", log.toList()));
         } catch (IOException ignored) {
             // The Admin status remains usable when Jenkins logs have been removed.
         }

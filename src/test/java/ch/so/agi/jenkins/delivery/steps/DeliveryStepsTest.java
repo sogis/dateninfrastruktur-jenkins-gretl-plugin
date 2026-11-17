@@ -15,48 +15,59 @@ import static org.junit.jupiter.api.Assertions.*;
 class DeliveryStepsTest {
     @TempDir Path home;
 
-    @Test void logsBoundedDiagnosticsWithoutValues() throws Exception {
+    @Test void preservesOriginalBytesAndPermissionsAfterCleanup() throws Exception {
+        var store = new IncomingUploadStore(home);
+        var id = UUID.randomUUID();
+        store.receive(id, 100, (path, limit) -> new IncomingUploadStore.Evidence(0, "", ""));
+        var upload = store.existing(id);
+        var run = Files.createDirectory(home.resolve("run"));
+        var original = "Info: ä\r\nUnknown diagnostic: private value\r\nFinal line"
+            .getBytes(StandardCharsets.UTF_8);
+        var source = upload.resolve("validation.log");
+        Files.write(source, original);
         var output = new ByteArrayOutputStream();
-        var log = home.resolve("validation.log");
-        Files.writeString(log, """
-            Info: dataFile </private/config>
-            Error: line 4: Probe.Snapshot.Row: tid o3: Unique constraint Probe.Snapshot.Row.Constraint1 is violated! Values sensitive,row already exist in Object: o2
-            Error: line 5: Probe.Snapshot.Row: tid o4: value <secret-sentinel> is not a number in attribute code
-            Error: line 6: Probe.Snapshot.Row: tid o5: Attribute code requires a value
-            """ + "Error: line 7: Probe.Snapshot.Row: tid o6: value <private> is not a number in attribute code\n".repeat(5000));
         try (var listener = new StreamTaskListener(output, StandardCharsets.UTF_8)) {
-            DeliverySteps.logValidation(log, listener);
+            DeliverySteps.archiveValidationLog(upload, run, listener);
+            Files.writeString(source, "Do not overwrite");
+            DeliverySteps.archiveValidationLog(upload, run, listener);
+            DeliverySteps.removeUpload(store, id, listener);
         }
-        var messages = output.toString(StandardCharsets.UTF_8);
-        assertTrue(messages.contains("Zeile 4. Unique constraint Probe.Snapshot.Row.Constraint1 is violated!"));
-        assertTrue(messages.contains("Zeile 5. Value is not a number in attribute code"));
-        assertTrue(messages.contains("Zeile 6. Attribute code requires a value"));
-        assertEquals(50, messages.lines().filter(line -> line.startsWith("CSV-Validierung")).count());
-        assertTrue(messages.contains("wurden begrenzt"));
-        for (var privateValue : new String[]{"private", "secret-sentinel", "sensitive,row"}) {
-            assertFalse(messages.contains(privateValue));
-        }
+        var archived = run.resolve("validation.log");
+        assertFalse(Files.exists(upload));
+        assertArrayEquals(original, Files.readAllBytes(archived));
+        assertEquals(PosixFilePermissions.fromString("rw-------"), Files.getPosixFilePermissions(archived));
+        assertFalse(output.toString(StandardCharsets.UTF_8).contains("private value"));
     }
 
-    @Test void explainsHeaderMismatchWithoutEchoingHeader() throws Exception {
+    @Test void skipsMissingAndSymlinkedLogs() throws Exception {
+        var upload = Files.createDirectory(home.resolve("upload"));
+        var run = Files.createDirectory(home.resolve("run"));
         var output = new ByteArrayOutputStream();
-        var log = home.resolve("validation.log");
-        Files.writeString(log, "Error: attributes of headerrecord: [private-zone, private-code]"
-            + " not found in iliModel: Probe\n");
         try (var listener = new StreamTaskListener(output, StandardCharsets.UTF_8)) {
-            DeliverySteps.logValidation(log, listener);
+            DeliverySteps.archiveValidationLog(upload, run, listener);
+            var other = Files.writeString(home.resolve("other"), "Private");
+            Files.createSymbolicLink(upload.resolve("validation.log"), other);
+            DeliverySteps.archiveValidationLog(upload, run, listener);
         }
-        var message = output.toString(StandardCharsets.UTF_8);
-        assertTrue(message.contains("Die Spaltennamen passen nicht zum gebundenen Modell."));
-        assertFalse(message.contains("private-zone") || message.contains("private-code"));
+        assertFalse(Files.exists(run.resolve("validation.log")));
+        assertEquals(0, output.size());
     }
 
-    @Test void missingLogOnlyAddsWarning() throws Exception {
+    @Test void skipsOversizedLogsWithoutPublishingAPartialCopy() throws Exception {
+        var upload = Files.createDirectory(home.resolve("upload"));
+        var run = Files.createDirectory(home.resolve("run"));
+        var log = upload.resolve("validation.log");
+        try (var file = new java.io.RandomAccessFile(log.toFile(), "rw")) {
+            file.setLength(64L * 1024 * 1024 + 1);
+        }
         var output = new ByteArrayOutputStream();
         try (var listener = new StreamTaskListener(output, StandardCharsets.UTF_8)) {
-            assertDoesNotThrow(() -> DeliverySteps.logValidation(home.resolve("validation.log"), listener));
+            DeliverySteps.archiveValidationLog(upload, run, listener);
         }
-        assertTrue(output.toString(StandardCharsets.UTF_8).contains("konnten nicht gelesen werden"));
+        try (var entries = Files.list(run)) {
+            assertEquals(0, entries.count());
+        }
+        assertTrue(output.toString(StandardCharsets.UTF_8).contains("überschreitet 64 MiB"));
     }
 
     @Test void cleanupFailureOnlyAddsWarning() throws Exception {
